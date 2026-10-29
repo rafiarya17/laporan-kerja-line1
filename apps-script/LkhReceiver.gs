@@ -162,3 +162,16 @@ function setupLkhTestReceiver(){
   }
   console.log('TEST_RECEIVER_READY; secret remains in Script Properties.');
 }
+
+/** Diagnostic for the latest isolated test receipt. Never executes in production mode. */
+function verifyLkhTestRetry(){
+  var props=PropertiesService.getScriptProperties();
+  if(props.getProperty('RECEIVER_MODE')!=='test')throw Error('TEST_ONLY_DIAGNOSTIC');
+  var sh=SpreadsheetApp.openById(props.getProperty('RECEIPT_SPREADSHEET_ID')).getSheetByName('WEB_LKH_RECEIPTS'),before=sh.getLastRow();
+  if(before<2)throw Error('SUBMIT_ONE_TEST_REPORT_FIRST');
+  var row=sh.getRange(before,1,1,6).getValues()[0],payload=JSON.parse(row[2]);payload.id=String(row[0]);
+  var first=lkhWebSubmit_(payload,'test'),second=lkhWebSubmit_(payload,'test'),after=sh.getLastRow();
+  if(before!==after||first.id!==second.id||first.receivedAt!==second.receivedAt||first.state!=='TEST_SAVED')throw Error('RETRY_CHECK_FAILED');
+  var result={ok:true,id:first.id,state:first.state,rowsBefore:before,rowsAfter:after,duplicateRows:after-before};
+  console.log('TEST_RETRY_VERIFIED '+JSON.stringify(result));return result;
+}

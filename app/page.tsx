@@ -209,21 +209,6 @@ export default function LaporanKerjaForm() {
 
   return (
     <div className="min-h-screen bg-slate-100 font-sans pb-28">
-      {/* TOAST */}
-      {toast && (
-        <div className="relative z-[60] mx-auto pt-4 w-[92%] max-w-4xl">
-          <div role="status" aria-live="polite"
-            className={`rounded-xl px-4 py-3 shadow-lg border text-sm font-semibold ${
-              toast.type === "success"
-                ? "bg-green-600 text-white border-green-700"
-                : "bg-red-600 text-white border-red-700"
-            }`}
-          >
-            {toast.msg}
-          </div>
-        </div>
-      )}
-
       {/* HEADER */}
       <div className="bg-gradient-to-br from-blue-900 via-blue-800 to-blue-600 h-56 w-full absolute top-0 z-0 rounded-b-[2.5rem] shadow-xl"></div>
 
@@ -262,6 +247,22 @@ export default function LaporanKerjaForm() {
             </div>
           ))}
         </div>
+
+      {/* TOAST */}
+      {toast && (
+        <div className="relative z-[60] mx-auto pt-4 w-[92%] max-w-4xl">
+          <div role="status" aria-live="polite"
+            className={`rounded-xl px-4 py-3 shadow-lg border text-sm font-semibold ${
+              toast.type === "success"
+                ? "bg-green-600 text-white border-green-700"
+                : "bg-red-600 text-white border-red-700"
+            }`}
+          >
+            {toast.msg}
+          </div>
+        </div>
+      )}
+
 
         <div className="bg-white border border-blue-200 rounded-2xl p-5 mb-6 text-slate-800 space-y-3" role="status">
           <p className="font-bold">{connection.mode === "production" ? "Laporan operasional" : "Versi pengujian • tidak masuk TF Slip produksi"}</p>
