@@ -1,0 +1,473 @@
+{
+  "LINE_1": {
+    "url": "https://docs.google.com/forms/d/e/1FAIpQLSd_Ju8f2S7Pfof3ZrkdDZrcy2omOIXBmNRrazgxixxIJnpCnQ/formResponse",
+    "entries": {
+      "tanggal": "entry.623231028",
+      "shift": "entry.717102785",
+      "operator": "entry.53070038",
+      "mesin": "entry.187334335",
+      "jam_mulai_proses": "entry.1771649841",
+      "jam_selesai_proses": "entry.406566829",
+      "qty_ok": "entry.251036658",
+      "qty_repair": "entry.651874507",
+      "qty_reject": "entry.104034433",
+      "lembur": "entry.655848224",
+      "ada_kendala": "entry.1271181568",
+      "kendala_4m": "entry.2010474275",
+      "permasalahan": "entry.1212273594",
+      "tindakan": "entry.415732501",
+      "pic": "entry.64399534",
+      "jam_mulai_kendala": "entry.71949914",
+      "jam_selesai_kendala": "entry.1051395701"
+    },
+    "operators": [
+      "Nanang Sunaryo", "Edwin Hardianto", "Arif nurhadi", "Hanif Mustofa", 
+      "Sarmita", "Bayu Aji Prakoso", "Kamung Suryana", "Agus Susanto", 
+      "Asep Rudiyono", "Abdul Rohman", "__other_option__"
+    ],
+    "mesin_part_mapping": {
+      "4X8 SILINCER": { "entryId": "entry.1580951855", "options": ["4X8 SILINCER_4X8-E4753-0000-0310"] },
+      "ARGON BJM": { "entryId": "entry.1613575464", "options": ["BODY 2-1_BJM-E472A-00-P3"] },
+      "AUTO CHAMPER": { "entryId": "entry.428037183", "options": ["PIPE 1_BPA-E4742-0000-0335", "PIPE 1_BLS-E475A-0000-0305", "PIPE 1_DB2-E4741-0000-0635"] },
+      "MANUAL CHAMPER": { "entryId": "entry.1146997133", "options": ["PIPE BOARD_SCP-45060-0000-0305"] },
+      "SPM MIG TK TR": { "entryId": "entry.596398208", "options": ["AUX TK_EJAPROD-SUBACM002", "AUX TR_EJAPROD-SUBACM001"] },
+      "PRESS 110 T": { "entryId": "entry.2047060487", "options": ["PIPE 1_B6H-E475A-0000-0305", "BODY 1-3_BSS-E471F-0000-0305", "BODY 1-1_BK6-E471A-0000-0905", "PIPE 1-1_B65-E461H-0000-0305", "PIPE 7_BJM-475K-00", "DIFFUSER CP_B0P-E4785-0100-0305-P4", "PIPE 9_2PV-E475M-0100-S0305"] },
+      "PRESS 45 TON": { "entryId": "entry.260863508", "options": ["DIFFUSER CP_B0P-E4785-0100-0305-P4", "PIPE 9_2PV-E475M-0100-S0305-P4", "PIPE 9_2PV-E475M-0100-S0305-P5", "BODY 2-1_BJM-E472A-00-P4", "PIPE 9_2PV-E475M-0100-S0305"] },
+      "ROLL SAKTI": { "entryId": "entry.1271451779", "options": ["BODY 2-2_BJM-E472E-00", "BODY 1-1_2SU-E471A-00", "BODY 1-1_1FD-E471A-20", "BODY 2-2_B5D-E472E-0100-0305", "BODY 2-2_2PH-E472E-0000-0305", "BODY 2-1_BJM-E472A-00-P2", "BODY 2-2_DB2-E472E-0000-0905"] }
+    }
+  },
+  "LINE_2": {
+    "url": "https://docs.google.com/forms/u/0/d/e/1FAIpQLSc-2SW05nM97wh--LokvE2MWtCEA0qpfkNaIqqfLBQmDKZeWQ/formResponse",
+    "entries": {
+      "tanggal": "entry.1167797211",
+      "shift": "entry.2124922441",
+      "operator": "entry.101956895",
+      "mesin": "entry.1340404797",
+      "jam_mulai_proses": "entry.814417604",
+      "jam_selesai_proses": "entry.1797773598",
+      "qty_ok": "entry.1279134820",
+      "qty_repair": "entry.1923060840",
+      "qty_reject": "entry.1123398387",
+      "lembur": "entry.465338895",
+      "ada_kendala": "entry.324889605",
+      "kendala_4m": "entry.419921380",
+      "permasalahan": "entry.875749184",
+      "tindakan": "entry.237550230",
+      "pic": "entry.1428843863",
+      "jam_mulai_kendala": "entry.483908002",
+      "jam_selesai_kendala": "entry.2006959890"
+    },
+    "operators": [
+      "Makmun Sutiyawan", "Ahmad Ulin", "Dwi Mulyono", "Agus Susanto", 
+      "Triyono", "Asep Rudiyono", "Yogi Prasetya", "Anang Kulo", "__other_option__"
+    ],
+    "mesin_part_mapping": {
+      "29N ASSY": {
+        "entryId": "entry.1665554109",
+        "options": [
+          "MUFF 1 CP_29N-E4711-0000-0310", "MUFF 1 CP WIP 2_29N-E4711-0000-0310", 
+          "MUFF 1 CP WIP 1_29N-E4711-0000-0310", "BODY 2-1 CUTTING_BJM-E472A-00-P4", 
+          "BODY 1-1_29N-E471A-0000-0605-P2", "BODY 2-1_1DY-E471A-00"
+        ]
+      },
+      "TIG WELD 300": {
+        "entryId": "entry.1403527821",
+        "options": [
+          "BODY 1-1_BK6-E471A-0000-0905-P4", "BODY 1-3_BSS-E471F-0000-0305-P4", 
+          "PIPE 9_2PV-E475M-0100-S0305-P3", "PIPE 7_1FD-E475K-0000-S0305", 
+          "DIFFUSER CP_B0P-E4785-0100-0305-P3"
+        ]
+      }
+    }
+  },
+  "LINE_3": {
+    "url": "https://docs.google.com/forms/u/0/d/e/1FAIpQLSe51fdmfXFYiodLYIXfeM9Dx63ONJRLA4LbghjoCaB588Tg_Q/formResponse",
+    "entries": {
+      "tanggal": "entry.2094959824",
+      "shift": "entry.2126395500",
+      "operator": "entry.605789212",
+      "mesin": "entry.1821196380",
+      "jam_mulai_proses": "entry.943662435",
+      "jam_selesai_proses": "entry.688465786",
+      "qty_ok": "entry.1078853319",
+      "qty_repair": "entry.97391640",
+      "qty_reject": "entry.1650342322",
+      "lembur": "entry.809532292",
+      "ada_kendala": "entry.1409349728",
+      "kendala_4m": "entry.1418780409",
+      "permasalahan": "entry.1898931995",
+      "tindakan": "entry.36462129",
+      "pic": "entry.528583330",
+      "jam_mulai_kendala": "entry.1291372076",
+      "jam_selesai_kendala": "entry.1873675396"
+    },
+    "operators": [
+      "Heri Prasetyo", "Jamil", "Abdul Basam", "Muhammad Lutfi", "Ade Irwan", 
+      "Al Mustofa", "Albert Alfino", "Mulyadi", "Tusimin", "Asep Rudiyono", "__other_option__"
+    ],
+    "mesin_part_mapping": {
+      "ROBOT PANASONIC 1": {
+        "entryId": "entry.389133793",
+        "options": ["STAY MUFFLER_B65-E4771-0000-0303"]
+      },
+      "ROBOT PANASONIC 11": {
+        "entryId": "entry.1113331694",
+        "options": ["JT EXH 1_BJM-E4615-0000-0310", "BODY 3-1_2PH-E473A-0000-0305", "BODY 3-1 CP_DB2-E473A-0000-0605"]
+      },
+      "ROBOT PANASONIC 14": {
+        "entryId": "entry.1739515322",
+        "options": ["STAY COMP_39137-0792 1K"]
+      },
+      "ROBOT PANASONIC 2": {
+        "entryId": "entry.31462218",
+        "options": [
+          "STAY MUFFLER_B65-E4771-0000-0303", "STAY UPPER RH_S0870-JS0D0", 
+          "STAY UPPER LH_S0870-JS0D5", "STAY UPPER RH_S0870-JS0C0", 
+          "STAY UPPER LH_S0870-JS0C5", "PLATE_FP16-0554-IDA00-P1", "PLATE_FP16-0553-IDA00-P1"
+        ]
+      },
+      "ROBOT PANASONIC 3": {
+        "entryId": "entry.56321634",
+        "options": [
+          "STAY UPPER RH_S0870-JS0C0", "STAY UPPER LH_S0870-JS0C5", 
+          "STAY UPPER RH_S0870-JS0D0", "STAY UPPER LH_S0870-JS0D5", 
+          "PLATE_FP16-0553-IDA00-P1", "PLATE_FP16-0554-IDA00-P1", "DIFFUSER_BJM-E4785-0000-0310"
+        ]
+      },
+      "ROBOT PANASONIC 4": {
+        "entryId": "entry.376538278",
+        "options": [
+          "BODY 1-1_2SU-E471A-0000-0605", "STAY UPPER RH_S0870-JS0C0", 
+          "BODY 1-1_1FD-E471A-0200-1805", "STAY UPPER LH_S0870-JS0C5"
+        ]
+      }
+    }
+  },
+  "LINE_4": {
+    "url": "https://docs.google.com/forms/u/0/d/e/1FAIpQLSdmvUZam_KTEQpVNlbmCGd2LCQqzIFwTfecfUQuXIWBNMdMQQ/formResponse",
+    "entries": {
+      "tanggal": "entry.1707465668",
+      "shift": "entry.565760648",
+      "operator": "entry.993128431",
+      "mesin": "entry.1805333030",
+      "jam_mulai_proses": "entry.969002846",
+      "jam_selesai_proses": "entry.790276428",
+      "qty_ok": "entry.642344676",
+      "qty_repair": "entry.286122142",
+      "qty_reject": "entry.359260720",
+      "lembur": "entry.1239337264",
+      "ada_kendala": "entry.1912271977",
+      "kendala_4m": "entry.1068217997",
+      "permasalahan": "entry.603779485",
+      "tindakan": "entry.1383603771",
+      "pic": "entry.2108270966",
+      "jam_mulai_kendala": "entry.1892926805",
+      "jam_selesai_kendala": "entry.430953700"
+    },
+    "operators": [
+      "Eman Sulaiman", "Juhriana", "Abdul Jalil", "Nur Iksan Suhud", 
+      "Muhammad Yusuf Supriyandi", "Kuspendi", "Awwaludin Sidiq", "Nanang", 
+      "Anggi Pranata", "Satriyo Arbiyanto", "Dede Saripudin", "Yogi Prasetya", 
+      "Tusimin", "Teguh Santoso", "Anang Kulo", "Rahmat Pujianto", "__other_option__"
+    ],
+    "mesin_part_mapping": {
+      "ARGON 2SU": {
+        "entryId": "entry.14045356",
+        "options": ["BODY 1-1 WIP 1_2SU-E471A-0000-0605"]
+      },
+      "ROBOT 5 OTC": {
+        "entryId": "entry.119935966",
+        "options": ["BODY 3-1_B6H-E473A-0000-0305-00"]
+      },
+      "ROBOT 6 OTC": {
+        "entryId": "entry.444264622",
+        "options": [
+          "BODY 3-1_B6H-E473A-0000-0305-00", "PIPE MUFF TAIL_BWN-E4746-0000-0310",
+          "BRACKET-COMP_23062-1724 1K", "BODY 3-1_BJM-E473A-0000-0310",
+          "SPARK ARRESTER_BWN-E4780-0000-0310", "JT EXH 1_BJM-E4615-0000-0310",
+          "JT EXH 2 CP_B5D-E4625-0200-0305", "JT EXH 2 CP_B5D-E4625-0100-0305",
+          "JT EXH 2 CP_DB2-E4625-0000-0605"
+        ]
+      },
+      "ROBOT 7 PANA": {
+        "entryId": "entry.1606453613",
+        "options": [
+          "JT EXH 1_BJM-E4615-0000-0310", "JT EXH 2 CP_B5D-E4625-0100-0305",
+          "JT EXH 2 CP_B5D-E4625-0200-0305", "DIFFUSER CP_BJM-E4785-0000-0310",
+          "PIPE MUFF TAIL_BWN-E4746-0000-0310", "SUPPORT SUB ASSY,STEP RH_S0870-JM0120-00",
+          "SUPPORT SUB ASSY,STEP LH_S0870-JM0130-00", "JT 3_BSS-E475U-0000-0305-P4"
+        ]
+      },
+      "SPM JTX 2PH": {
+        "entryId": "entry.1089642468",
+        "options": [
+          "JTX EXH 2 CP_2PH-E4625-0000-0305", "JTX EXH 2 WIP 2_2PH-E4625-0000-0305",
+          "JTX EXH 2 WIP 1_2PH-E4625-0000-0305"
+        ]
+      },
+      "SPM ROTARY": {
+        "entryId": "entry.713140436",
+        "options": [
+          "PIPE EXH 3_B6H-E4631-0000-0305", "PIPE EXH 3 WIP 2_B6H-E4631-0000-0305"
+        ]
+      },
+      "ARGON 1FD": {
+        "entryId": "entry.144026977",
+        "options": ["BODY 1-1 WIP 1_1FD-E471A-0200-1805"]
+      }
+    }
+  },
+  "LINE_5": {
+    "url": "https://docs.google.com/forms/u/0/d/e/1FAIpQLSf6TkKERLZlIqVfGdRR7leGPRA06tnNa5jQJ6c1SshD_GJVyQ/formResponse",
+    "entries": {
+      "tanggal": "entry.248703456",
+      "shift": "entry.291003469",
+      "operator": "entry.922434694",
+      "mesin": "entry.2108416928",
+      "jam_mulai_proses": "entry.332245078",
+      "jam_selesai_proses": "entry.2125293299",
+      "qty_ok": "entry.1151089372",
+      "qty_repair": "entry.68499873",
+      "qty_reject": "entry.1100841840",
+      "lembur": "entry.415819446",
+      "ada_kendala": "entry.1280861439",
+      "kendala_4m": "entry.787971368",
+      "permasalahan": "entry.583598152",
+      "tindakan": "entry.1960165858",
+      "pic": "entry.875856317",
+      "jam_mulai_kendala": "entry.259520223",
+      "jam_selesai_kendala": "entry.1055320652"
+    },
+    "operators": [
+      "Kamung Suryana", "Tanuji", "Bayu  Ilham", "Lukman Ajiz", "Saepudin", 
+      "Tusimin", "Budi Rahmat", "Danu Zein Mahendra", "Dede Awaludin", 
+      "Abdul Rohman", "Yogi Prasetya", "Sarmita", "__other_option__"
+    ],
+    "mesin_part_mapping": {
+      "ROBOT 12 PANASONIC": {
+        "entryId": "entry.41450462",
+        "options": ["BODY 3-1_B5D-E473A-0000-0303"]
+      },
+      "ROBOT 8 OTC TIG": {
+        "entryId": "entry.1379690165",
+        "options": [
+          "DIFFUSER_BJM-E4785-0000-0310-00", "JT 3_BSS-E475U-0000-0305-P4",
+          "DIFFUSER CP_B0P-E4785-0100-0305", "DIFFUSER_B5D-E4625-0100-0305-01",
+          "DIFFUSER_B5D-E4625-0200-0305-01", "DIFFUSER_DB2-E4625-0000-0605-01"
+        ]
+      },
+      "ROBOT 9 OTC": {
+        "entryId": "entry.1423066382",
+        "options": [
+          "SUPPORT SUB ASSY,STEP RH_S0870-JM050-B0", "SUPPORT SUB ASSY,STEP LH_S0870-JM060-B0",
+          "JT EXH 2 CP_B5D-E4625-0100-0305", "JT EXH 2 CP_B5D-E4625-0200-0305"
+        ]
+      },
+      "SPOT 0955": {
+        "entryId": "entry.1082884587",
+        "options": [
+          "PLATE_FP17-0955-IDA00", "BRACKET AIR PIPE_804750020",
+          "BRACKET 2-3_BK6-E472M-0000-0305", "BRACKET KAWASAKI ASSY_11058-7065",
+          "BRACKET KAWASAKI_11058-7407", "BRACKET 4-2_BWN-E4746-0000-02",
+          "SUB ASSY SPOT BRECKET EW 081 + NUT_S5115-EW081-00"
+        ]
+      },
+      "SPOT 2SU": {
+        "entryId": "entry.2114829547",
+        "options": ["BODY 1-1 WIP 2_2SU-E471A-0000-0605"]
+      },
+      "SPOT BJM": {
+        "entryId": "entry.172500634",
+        "options": ["BODY 2-1_BJM-E472A-0000-0310"]
+      },
+      "SPOT FIN LUG": {
+        "entryId": "entry.332185165",
+        "options": [
+          "BRACKET FIN LUG FLOOR RH_LI-3A5H4-BRKT-02", "BRACKET FIN LUG FLOOR LH_LI-3A5H4-BRKT-03",
+          "WIRE NET", "PROT MUFF 1_1DY-E4718-0000-0310-P1", "PROT MUFF 2_1DY-E4718-0000-0310"
+        ]
+      },
+      "Robot 13 TIG ARGON": {
+        "entryId": "entry.661503165",
+        "options": [
+          "DIFFUSER SUB ASSY_B6H-E4631-0000-0305-01", "PIPE EXH 3 WIP 1_B6H-E4631-0000-0305"
+        ]
+      },
+      "BUFFING": {
+        "entryId": "entry.357708611",
+        "options": [
+          "PLATE_FP16-0553-IDA00", "PLATE_FP16-0554-IDA00",
+          "PLATE_FP17-0955-IDA00-01", "PROT MUFF 1_1DY-E4718-0000-0310"
+        ]
+      },
+      "SPOT 1FD": {
+        "entryId": "entry.1314429750",
+        "options": ["BODY 1-1 WIP 2_1FD-E471A-0200-1805"]
+      }
+    }
+  },
+  "LINE_6": {
+    "url": "https://docs.google.com/forms/u/0/d/e/1FAIpQLSeRFYH0fuhDBKCwvsfehWmZHN3S1et1iuRbD3sF5ePkvPAEpw/formResponse",
+    "entries": {
+      "tanggal": "entry.1824221195",
+      "shift": "entry.1939881600",
+      "operator": "entry.1314837886",
+      "mesin": "entry.738528380",
+      "jam_mulai_proses": "entry.1344567692",
+      "jam_selesai_proses": "entry.1922510402",
+      "qty_ok": "entry.1066975928",
+      "qty_repair": "entry.1350084735",
+      "qty_reject": "entry.433589809",
+      "lembur": "entry.2028636921",
+      "ada_kendala": "entry.2094544001",
+      "kendala_4m": "entry.1400117887",
+      "permasalahan": "entry.1401212736",
+      "tindakan": "entry.2075914245",
+      "pic": "entry.1703781136",
+      "jam_mulai_kendala": "entry.1440464276",
+      "jam_selesai_kendala": "entry.118665419"
+    },
+    "operators": [
+      "Darmoko", "Rahmat Pujianto", "Wasir Guntoro", "__other_option__"
+    ],
+    "mesin_part_mapping": {
+      "BENDING NC 50": {
+        "entryId": "entry.1558749473",
+        "options": ["PIPE LEVEL OIL GAUGE_11452-BZ071-P5"]
+      },
+      "BRAZING": {
+        "entryId": "entry.822265903",
+        "options": ["PIPE LEVEL OIL GAUGE_11409-BZ101"]
+      },
+      "INSPECTION": {
+        "entryId": "entry.277003661",
+        "options": ["PIPE LEVEL OIL GAUGE_11409-BZ101-00"]
+      },
+      "PRESS 80 TON": {
+        "entryId": "entry.181898108",
+        "options": [
+          "PIPE_11452-BZ071-P3", "PIPE_11452-BZ071-P2", "PIPE_11452-BZ071-P1",
+          "PIPE EXH 3_B6H-E4631-00", "DIFFUSER CP_B0P-E4785-0100-0305-P4"
+        ]
+      },
+      "REMER": {
+        "entryId": "entry.1166364659",
+        "options": ["PIPE LEVEL OIL GAUGE_11452-BZ071-P4"]
+      }
+    }
+  },
+  "LINE_7": {
+    "url": "https://docs.google.com/forms/u/0/d/e/1FAIpQLSc14iKdFB0mgV139lgWYwcqmZpC3xwaOetHGRFJC4caI-481Q/formResponse",
+    "entries": {
+      "tanggal": "entry.1566821353",
+      "shift": "entry.390571930",
+      "operator": "entry.365045490",
+      "mesin": "entry.1726543840",
+      "jam_mulai_proses": "entry.1289505687",
+      "jam_selesai_proses": "entry.1094865932",
+      "qty_ok": "entry.1126850481",
+      "qty_repair": "entry.2133401557",
+      "qty_reject": "entry.1930954949",
+      "lembur": "entry.1014466292",
+      "ada_kendala": "entry.475255456",
+      "kendala_4m": "entry.1281843504",
+      "permasalahan": "entry.543422313",
+      "tindakan": "entry.232014498",
+      "pic": "entry.1850817467",
+      "jam_mulai_kendala": "entry.1339871705",
+      "jam_selesai_kendala": "entry.546722983"
+    },
+    "operators": [
+      "Andi Ruswandi", "Kusyanto", "__other_option__"
+    ],
+    "mesin_part_mapping": {
+      "BENDING CNC 120": {
+        "entryId": "entry.1652417679",
+        "options": [
+          "SUPPORT SUB-ASSY STEP RH_S0870-JM055", "SUPPORT SUB-ASSY STEP LH_S0870-JM065",
+          "SUPPORT SUB-ASSY STEP RH_S0870-JM0120", "SUPPORT SUB-ASSY STEP LH_S0870-JM0130"
+        ]
+      },
+      "LASER A 1000 W": {
+        "entryId": "entry.436347632",
+        "options": [
+          "BODY PIPE 1-3_1PA-E461F-0000-0305-P1", "BODY PIPE 1-4_2PV-E461G-0000-0305-P1",
+          "PIPE EXH.3_B6H-E4631-00-P1", "PIPE 7_BJM-475K-00-P1",
+          "PIPE TAIL_BJ8-E473A-0000-0305", "PIPE 1-1_B65-E461H-0000-0305-P1",
+          "PIPE 1_B6H-E475A-0000-0305-P1", "PIPE TAIL_2PH-E4784-00",
+          "PIPE SILINCER_1WD-E466L-0000-0305-P1", "JT EXH 2 _2DP-E4625-0000-0307-P1",
+          "JT EXH 1_B5D-E4615-0100-0305-P1", "JT EXH 1_2PH-E4615-0000-0305-P1",
+          "PIPE 1_32155-1515-S0305-P1", "JT 1_1DY-E475R-0000-0305-P1",
+          "PIPE 2-1_2PH-E462H-0000-0305", "PIPE_BPA-E4742-0000-0335-P1",
+          "BAFFLE PIPE MUFF_49129-0651-00-0605-P1", "PIPE 8_BWN-E475L-00-P1",
+          "PIPE 1-2_E461J-0000-0305", "PIPE 1_DB2-E4741-0000-0635"
+        ]
+      },
+      "LASER B 1500 W": {
+        "entryId": "entry.1713051417",
+        "options": [
+          "PIPE 1-1_B65-E461H-0000-0305-P1", "PIPE 1-1_2PH-E461H-0000-0305",
+          "PIPE 2-1_2PH-E462H-0000-0305", "PIPE_BPA-E4742-0000-0335-P1",
+          "PIPE TAIL_2PH-E4784-00", "PIPE EXH 3 CP_B6H-E4631-00-P1",
+          "BODY PIPE 1-4_1PA-E461G-0000-0305-P1", "PIPE 2_2MS-E475E-00-P1",
+          "PIPE TAIL_BJ8-E473A-0000-0305", "PIPE 1_B6H-E475A-0000-0305-P1",
+          "JT EXH 1_B5D-E4615-0100-0305-P1", "JT EXH 1_2PH-E4615-0000-0305-P1",
+          "JT 1_1DY-E475R-0000-0305-P1", "PIPE 1_BLS-E475A-0000-0305-P1",
+          "PIPE BOARD_SCP-45060-0000-0305-P1"
+        ]
+      },
+      "PRESS 150 TON": {
+        "entryId": "entry.1392501705",
+        "options": [
+          "PIPE 1-1_B65-E461H-0000-0305", "PIPE STEP SUPPORT RH_S870-JM050",
+          "PIPE STEP SUPPORT LH_S870-JM060", "PIPE STEP SUPPORT RH_S870-JM120",
+          "PIPE STEP SUPPORT LH_S870-JM130"
+        ]
+      }
+    }
+  },
+  "LINE_8": {
+    "url": "https://docs.google.com/forms/u/0/d/e/1FAIpQLSdNUig55Ubf5pCmosHID2HPvWQTXyHue6I775tGobYS0y0aww/formResponse",
+    "entries": {
+      "tanggal": "entry.1816426548",
+      "shift": "entry.1236036689",
+      "operator": "entry.2102964830",
+      "mesin": "entry.1449200756",
+      "jenis_aktivitas": "entry.2072077697",
+      "jam_mulai_proses": "entry.322600063",
+      "jam_selesai_proses": "entry.1085478780",
+      "qty_ok": "entry.142186902",
+      "qty_repair": "entry.641245035",
+      "qty_reject": "entry.737403783",
+      "lembur": "entry.1410484927",
+      "jumlah_sambungan": "entry.179281643",
+      "ada_kendala": "entry.1383303248",
+      "kendala_4m": "entry.29654190",
+      "permasalahan": "entry.561818219",
+      "tindakan": "entry.502210026",
+      "pic": "entry.782386606",
+      "jam_mulai_kendala": "entry.1569593140",
+      "jam_selesai_kendala": "entry.2092663293",
+      "tanggal_mulai_dandori": "entry.847519376",
+      "jam_mulai_dandori": "entry.102941101",
+      "tanggal_selesai_dandori": "entry.1880388725",
+      "jam_selesai_dandori": "entry.1930855181",
+      "tahap_dandori": "entry.1102785479",
+      "hasil_dandori": "entry.517336370",
+      "catatan_dandori": "entry.1031405702"
+    },
+    "operators": [
+      "Asep Henriyanto", "Teguh Santoso", "__other_option__"
+    ],
+    "mesin_part_mapping": {
+      "YXH - LONGPIPE": {
+        "entryId": "entry.9681388",
+        "options": [
+          "SUS409L x 1,2 x 56,4 x 6000", "SUS409L x 1,0 x 31,8 x 6000",
+          "SUS409L x 1,2 x 31,8 x 6000", "SUS409L x 1,0 x 28,6 x 4000",
+          "SUS409L x 1,0 x 28,6 x 6000"
+        ]
+      }
+    }
+  }
+}
