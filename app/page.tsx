@@ -40,7 +40,6 @@
 // export default function LaporanKerjaForm() {
 //   const [isSubmitting, setIsSubmitting] = useState(false);
 
-//   // State untuk form
 //   const [formData, setFormData] = useState({
 //     tanggal: "", shift: "", operator: "", operatorLainnya: "",
 //     mesin: "", part: "",
@@ -83,13 +82,12 @@
 //       data.append(targetPartEntry, formData.part);
 //     }
 
-//     // 3. HASIL PRODUKSI (Format Jam dipisah hour dan minute)
+//     // 3. HASIL PRODUKSI 
 //     if (formData.jamMulaiProses) {
 //        const [mulaiHour, mulaiMin] = formData.jamMulaiProses.split(":");
 //        data.append("entry.1771649841_hour", mulaiHour);
 //        data.append("entry.1771649841_minute", mulaiMin);
 //     }
-    
 //     if (formData.jamSelesaiProses) {
 //        const [selesaiHour, selesaiMin] = formData.jamSelesaiProses.split(":");
 //        data.append("entry.406566829_hour", selesaiHour);
@@ -114,7 +112,6 @@
 //          data.append("entry.71949914_hour", kendalaMulaiHour);
 //          data.append("entry.71949914_minute", kendalaMulaiMin);
 //       }
-      
 //       if (formData.jamSelesaiKendala) {
 //          const [kendalaSelesaiHour, kendalaSelesaiMin] = formData.jamSelesaiKendala.split(":");
 //          data.append("entry.1051395701_hour", kendalaSelesaiHour);
@@ -122,9 +119,7 @@
 //       }
 //     }
 
-//     // ==========================================
-//     // KUNCI RAHASIA: KALKULATOR RUTE (PAGE HISTORY)
-//     // ==========================================
+//     // LOGIKA RUTE PAGE HISTORY
 //     const PAGE_MAPPING: Record<string, number> = {
 //       "4X8 SILINCER": 1,
 //       "ARGON BJM": 2,
@@ -136,35 +131,23 @@
 //       "ROLL SAKTI": 8
 //     };
 
-//     const history = [0]; // Selalu mulai dari Bagian 1 (index 0)
-    
-//     if (formData.mesin && PAGE_MAPPING[formData.mesin]) {
-//       history.push(PAGE_MAPPING[formData.mesin]); // Tambahkan rute halaman part
-//     }
-    
-//     history.push(9); // Selalu masuk ke Bagian 10 Hasil Produksi (index 9)
+//     const history = [0]; 
+//     if (formData.mesin && PAGE_MAPPING[formData.mesin]) history.push(PAGE_MAPPING[formData.mesin]); 
+//     history.push(9); 
+//     if (formData.kendala === "Ada") history.push(10); 
 
-//     if (formData.kendala === "Ada") {
-//       history.push(10); // Jika kendala Ada, masuk ke Bagian 11 (index 10)
-//     }
-
-//     // Gabungkan rute menjadi string dan kirimkan ke Google Form
 //     data.append("pageHistory", history.join(","));
 
-//     // ==========================================
-//     // EKSEKUSI PENGIRIMAN DATA
-//     // ==========================================
 //     try {
 //       await fetch(formUrl, {
 //         method: "POST",
-//         mode: "no-cors", // Kembali menggunakan no-cors agar tidak buka tab baru
+//         mode: "no-cors",
 //         headers: { "Content-Type": "application/x-www-form-urlencoded" },
 //         body: data.toString(),
 //       });
       
 //       alert("Laporan berhasil disubmit!");
       
-//       // Kosongkan form kembali
 //       setFormData({
 //         tanggal: "", shift: "", operator: "", operatorLainnya: "",
 //         mesin: "", part: "", jamMulaiProses: "", jamSelesaiProses: "",
@@ -183,21 +166,22 @@
 //   };
 
 //   return (
-//     <div className="min-h-screen bg-gradient-to-br from-slate-100 to-indigo-50 font-sans pb-24">
-//       <div className="bg-indigo-600 h-40 w-full absolute top-0 z-0"></div>
+//     <div className="min-h-screen bg-slate-50 font-sans pb-24">
+//       {/* HEADER BIRU TUA BERLINDO */}
+//       <div className="bg-blue-800 h-44 w-full absolute top-0 z-0 rounded-b-3xl shadow-lg"></div>
 
 //       <div className="relative z-10 max-w-4xl mx-auto px-4 pt-12">
 //         <div className="text-center mb-8">
-//           <h1 className="text-3xl font-extrabold text-white tracking-tight">Laporan Harian Kerja</h1>
-//           <p className="text-indigo-100 mt-2 font-medium">Line 1 Production System</p>
+//           <h1 className="text-3xl font-extrabold text-white tracking-tight drop-shadow-md">Laporan Harian Kerja</h1>
+//           <p className="text-blue-100 mt-2 font-medium tracking-wide">Line 1 Production System</p>
 //         </div>
 
 //         <form onSubmit={handleSubmit} className="space-y-6">
           
-//           {/* SECTION 1 */}
-//           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-8 transition-all">
-//             <h2 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
-//               <span className="bg-indigo-100 text-indigo-700 w-8 h-8 rounded-full flex items-center justify-center text-sm">1</span>
+//           {/* SECTION 1: INFORMASI DASAR */}
+//           <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-6 md:p-8 transition-all">
+//             <h2 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-3 border-b pb-3">
+//               <span className="bg-blue-100 text-blue-800 w-8 h-8 rounded-full flex items-center justify-center text-sm shadow-sm">1</span>
 //               Informasi Dasar
 //             </h2>
             
@@ -205,7 +189,7 @@
 //               <div className="space-y-2">
 //                 <label className="text-sm font-semibold text-gray-700">Tanggal Laporan <span className="text-red-500">*</span></label>
 //                 <input type="date" name="tanggal" required value={formData.tanggal} onChange={handleChange} 
-//                   className="w-full border-gray-300 border p-3 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-gray-50 transition-all" />
+//                   className="w-full border-gray-300 border p-3 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none bg-white text-gray-900 transition-all shadow-sm" />
 //               </div>
 
 //               <div className="space-y-2">
@@ -214,7 +198,7 @@
 //                   {["1", "2"].map((s) => (
 //                     <label key={s} className="relative cursor-pointer">
 //                       <input type="radio" name="shift" value={s} required onChange={handleChange} checked={formData.shift === s} className="peer sr-only" />
-//                       <div className="p-3 border border-gray-200 rounded-xl text-center peer-checked:bg-indigo-600 peer-checked:text-white peer-checked:border-indigo-600 peer-hover:bg-gray-50 transition-all font-medium">
+//                       <div className="p-3 border border-gray-300 bg-white text-gray-800 rounded-xl text-center peer-checked:bg-orange-500 peer-checked:text-white peer-checked:border-orange-500 hover:border-orange-300 transition-all font-semibold shadow-sm">
 //                         Shift {s}
 //                       </div>
 //                     </label>
@@ -228,7 +212,7 @@
 //                   {MESIN_LIST.map((m) => (
 //                     <label key={m} className="relative cursor-pointer">
 //                       <input type="radio" name="mesin" value={m} required onChange={handleChange} checked={formData.mesin === m} className="peer sr-only" />
-//                       <div className="p-3 border border-gray-200 rounded-xl text-center text-xs md:text-sm peer-checked:bg-indigo-600 peer-checked:text-white peer-checked:border-indigo-600 hover:border-indigo-300 transition-all font-medium flex items-center justify-center h-full">
+//                       <div className="p-3 border border-gray-300 bg-white text-gray-800 rounded-xl text-center text-xs md:text-sm peer-checked:bg-orange-500 peer-checked:text-white peer-checked:border-orange-500 hover:border-orange-300 transition-all font-semibold flex items-center justify-center h-full shadow-sm">
 //                         {m}
 //                       </div>
 //                     </label>
@@ -242,7 +226,7 @@
 //                   {OPERATOR_LIST.map((op) => (
 //                     <label key={op} className="relative cursor-pointer">
 //                       <input type="radio" name="operator" value={op} required onChange={handleChange} checked={formData.operator === op} className="peer sr-only" />
-//                       <div className="p-3 border border-gray-200 rounded-xl text-center text-sm peer-checked:bg-indigo-100 peer-checked:text-indigo-800 peer-checked:border-indigo-400 hover:bg-gray-50 transition-all">
+//                       <div className="p-3 border border-gray-300 bg-white text-gray-800 rounded-xl text-center text-sm peer-checked:bg-blue-50 peer-checked:text-blue-800 peer-checked:border-blue-500 hover:border-blue-300 transition-all font-semibold shadow-sm">
 //                         {op}
 //                       </div>
 //                     </label>
@@ -251,28 +235,28 @@
 //                 <div className={`grid transition-[grid-template-rows] duration-300 ${formData.operator === "Lainnya" ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
 //                   <div className="overflow-hidden">
 //                     <input type="text" name="operatorLainnya" placeholder="Ketik nama operator..." required={formData.operator === "Lainnya"} value={formData.operatorLainnya} onChange={handleChange} 
-//                       className="w-full mt-3 border-gray-300 border p-3 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none bg-indigo-50/50" />
+//                       className="w-full mt-3 border-gray-300 border p-3 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-white text-gray-900 shadow-sm" />
 //                   </div>
 //                 </div>
 //               </div>
 //             </div>
 //           </div>
 
-//           {/* SECTION 2 */}
+//           {/* SECTION 2: PILIH PART */}
 //           <div className={`grid transition-[grid-template-rows] duration-500 ease-in-out ${formData.mesin ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
 //             <div className="overflow-hidden">
-//               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-8 mt-2">
-//                 <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-//                   <span className="bg-indigo-100 text-indigo-700 w-8 h-8 rounded-full flex items-center justify-center text-sm">2</span>
-//                   Detail Part <span className="text-indigo-600 ml-1">({formData.mesin})</span>
+//               <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-6 md:p-8 mt-2">
+//                 <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-3 border-b pb-3">
+//                   <span className="bg-blue-100 text-blue-800 w-8 h-8 rounded-full flex items-center justify-center text-sm shadow-sm">2</span>
+//                   Detail Part <span className="text-orange-600 ml-1">({formData.mesin})</span>
 //                 </h2>
 //                 <div className="flex flex-col gap-3">
 //                   {PART_MAPPING[formData.mesin]?.map((part) => (
 //                     <label key={part} className="relative cursor-pointer group">
 //                       <input type="radio" name="part" value={part} required onChange={handleChange} checked={formData.part === part} className="peer sr-only" />
-//                       <div className="p-4 border-2 border-gray-100 rounded-xl peer-checked:border-indigo-500 peer-checked:bg-indigo-50 group-hover:border-indigo-200 transition-all flex items-center justify-between">
-//                         <span className="font-medium text-gray-700 peer-checked:text-indigo-800">{part}</span>
-//                         <div className="w-5 h-5 rounded-full border-2 border-gray-300 peer-checked:border-indigo-600 peer-checked:bg-indigo-600 flex items-center justify-center transition-all">
+//                       <div className="p-4 border-2 border-gray-200 bg-white rounded-xl peer-checked:border-orange-500 peer-checked:bg-orange-50 hover:border-orange-300 transition-all flex items-center justify-between shadow-sm">
+//                         <span className="font-semibold text-gray-800 peer-checked:text-orange-800">{part}</span>
+//                         <div className="w-5 h-5 rounded-full border-2 border-gray-300 peer-checked:border-orange-600 peer-checked:bg-orange-600 flex items-center justify-center transition-all bg-white">
 //                            <div className={`w-2 h-2 rounded-full bg-white transition-opacity ${formData.part === part ? "opacity-100" : "opacity-0"}`}></div>
 //                         </div>
 //                       </div>
@@ -283,10 +267,10 @@
 //             </div>
 //           </div>
 
-//           {/* SECTION 3 */}
-//           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-8">
-//             <h2 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
-//               <span className="bg-indigo-100 text-indigo-700 w-8 h-8 rounded-full flex items-center justify-center text-sm">3</span>
+//           {/* SECTION 3: HASIL PRODUKSI */}
+//           <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-6 md:p-8">
+//             <h2 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-3 border-b pb-3">
+//               <span className="bg-blue-100 text-blue-800 w-8 h-8 rounded-full flex items-center justify-center text-sm shadow-sm">3</span>
 //               Hasil Produksi
 //             </h2>
             
@@ -294,12 +278,12 @@
 //               <div className="space-y-2">
 //                 <label className="text-sm font-semibold text-gray-700">Jam Mulai <span className="text-red-500">*</span></label>
 //                 <input type="time" name="jamMulaiProses" required value={formData.jamMulaiProses} onChange={handleChange} 
-//                   className="w-full border-gray-300 border p-3 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none bg-gray-50" />
+//                   className="w-full border-gray-300 border p-3 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-white text-gray-900 shadow-sm" />
 //               </div>
 //               <div className="space-y-2">
 //                 <label className="text-sm font-semibold text-gray-700">Jam Selesai <span className="text-red-500">*</span></label>
 //                 <input type="time" name="jamSelesaiProses" required value={formData.jamSelesaiProses} onChange={handleChange} 
-//                   className="w-full border-gray-300 border p-3 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none bg-gray-50" />
+//                   className="w-full border-gray-300 border p-3 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-white text-gray-900 shadow-sm" />
 //               </div>
 //             </div>
 
@@ -307,17 +291,25 @@
 //               <div className="space-y-2">
 //                 <label className="text-sm font-semibold text-gray-700">Qty OK <span className="text-red-500">*</span></label>
 //                 <input type="number" name="qtyOk" min="0" required value={formData.qtyOk} onChange={handleChange} 
-//                   className="w-full border-gray-300 border p-3 rounded-xl text-center text-lg font-bold text-green-700 focus:ring-2 focus:ring-green-500 outline-none bg-green-50/30" />
+//                   className="w-full border-gray-300 border p-3 rounded-xl text-center text-lg font-bold text-green-700 focus:ring-2 focus:ring-green-500 outline-none bg-green-50 shadow-sm" />
 //               </div>
-//               <div className="space-y-2">
+              
+//               <div className="space-y-1">
 //                 <label className="text-sm font-semibold text-gray-700">Repair <span className="text-red-500">*</span></label>
 //                 <input type="number" name="qtyRepair" min="0" required value={formData.qtyRepair} onChange={handleChange} 
-//                   className="w-full border-gray-300 border p-3 rounded-xl text-center text-lg font-bold text-yellow-700 focus:ring-2 focus:ring-yellow-500 outline-none bg-yellow-50/30" />
+//                   className="w-full border-gray-300 border p-3 rounded-xl text-center text-lg font-bold text-orange-600 focus:ring-2 focus:ring-orange-500 outline-none bg-orange-50 shadow-sm" />
+//                 <p className="text-[10px] md:text-xs text-red-500 italic text-center leading-tight">
+//                   *Jika ada, isikan "Ada Kendala"
+//                 </p>
 //               </div>
-//               <div className="space-y-2">
+              
+//               <div className="space-y-1">
 //                 <label className="text-sm font-semibold text-gray-700">Reject <span className="text-red-500">*</span></label>
 //                 <input type="number" name="qtyReject" min="0" required value={formData.qtyReject} onChange={handleChange} 
-//                   className="w-full border-gray-300 border p-3 rounded-xl text-center text-lg font-bold text-red-700 focus:ring-2 focus:ring-red-500 outline-none bg-red-50/30" />
+//                   className="w-full border-gray-300 border p-3 rounded-xl text-center text-lg font-bold text-red-700 focus:ring-2 focus:ring-red-500 outline-none bg-red-50 shadow-sm" />
+//                 <p className="text-[10px] md:text-xs text-red-500 italic text-center leading-tight">
+//                   *Jika ada, isikan "Ada Kendala"
+//                 </p>
 //               </div>
 //             </div>
 
@@ -328,7 +320,7 @@
 //                   {["Yes", "No"].map((opt) => (
 //                     <label key={opt} className="relative cursor-pointer flex-1">
 //                       <input type="radio" name="lembur" value={opt} required onChange={handleChange} checked={formData.lembur === opt} className="peer sr-only" />
-//                       <div className="p-3 border border-gray-200 rounded-xl text-center peer-checked:bg-gray-800 peer-checked:text-white transition-all font-medium">
+//                       <div className="p-3 border border-gray-300 bg-white text-gray-800 rounded-xl text-center peer-checked:bg-blue-800 peer-checked:text-white transition-all font-semibold shadow-sm">
 //                         {opt}
 //                       </div>
 //                     </label>
@@ -341,13 +333,13 @@
 //                 <div className="flex gap-3">
 //                   <label className="relative cursor-pointer flex-1">
 //                     <input type="radio" name="kendala" value="Tidak" required onChange={handleChange} checked={formData.kendala === "Tidak"} className="peer sr-only" />
-//                     <div className="p-3 border border-gray-200 rounded-xl text-center peer-checked:bg-green-600 peer-checked:border-green-600 peer-checked:text-white transition-all font-medium">
+//                     <div className="p-3 border border-gray-300 bg-white text-gray-800 rounded-xl text-center peer-checked:bg-green-600 peer-checked:border-green-600 peer-checked:text-white transition-all font-semibold shadow-sm">
 //                       Aman (Tidak Ada)
 //                     </div>
 //                   </label>
 //                   <label className="relative cursor-pointer flex-1">
 //                     <input type="radio" name="kendala" value="Ada" required onChange={handleChange} checked={formData.kendala === "Ada"} className="peer sr-only" />
-//                     <div className="p-3 border border-gray-200 rounded-xl text-center peer-checked:bg-red-600 peer-checked:border-red-600 peer-checked:text-white transition-all font-medium">
+//                     <div className="p-3 border border-gray-300 bg-white text-gray-800 rounded-xl text-center peer-checked:bg-red-600 peer-checked:border-red-600 peer-checked:text-white transition-all font-semibold shadow-sm">
 //                       Ada Kendala
 //                     </div>
 //                   </label>
@@ -356,20 +348,20 @@
 //             </div>
 //           </div>
 
-//           {/* SECTION 4 */}
+//           {/* SECTION 4: DETAIL KENDALA */}
 //           <div className={`grid transition-[grid-template-rows] duration-500 ease-in-out ${formData.kendala === "Ada" ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
 //             <div className="overflow-hidden">
-//               <div className="bg-red-50/50 rounded-2xl shadow-sm border border-red-200 p-6 md:p-8 mt-2">
-//                 <h2 className="text-lg font-bold text-red-800 mb-6 flex items-center gap-2">
-//                   <span className="bg-red-200 text-red-800 w-8 h-8 rounded-full flex items-center justify-center text-sm">!</span>
+//               <div className="bg-red-50 rounded-2xl shadow-md border border-red-200 p-6 md:p-8 mt-2">
+//                 <h2 className="text-lg font-bold text-red-800 mb-6 flex items-center gap-3 border-b border-red-200 pb-3">
+//                   <span className="bg-red-600 text-white w-8 h-8 rounded-full flex items-center justify-center text-sm shadow-sm">!</span>
 //                   Detail Kendala
 //                 </h2>
                 
 //                 <div className="space-y-5">
 //                   <div className="space-y-2">
-//                     <label className="text-sm font-semibold text-gray-700">Kendala 4M <span className="text-red-500">*</span></label>
+//                     <label className="text-sm font-semibold text-gray-800">Kendala 4M <span className="text-red-500">*</span></label>
 //                     <select name="kendala4M" required={formData.kendala === "Ada"} value={formData.kendala4M} onChange={handleChange} 
-//                       className="w-full border-gray-300 border p-3 rounded-xl focus:ring-2 focus:ring-red-500 outline-none bg-white">
+//                       className="w-full border-gray-300 border p-3 rounded-xl focus:ring-2 focus:ring-red-500 outline-none bg-white text-gray-900 shadow-sm">
 //                       <option value="" disabled>-- Pilih Klasifikasi --</option>
 //                       <option value="MANUSIA">1. MANUSIA</option>
 //                       <option value="MESIN">2. MESIN</option>
@@ -379,32 +371,32 @@
 //                   </div>
 
 //                   <div className="space-y-2">
-//                     <label className="text-sm font-semibold text-gray-700">Permasalahan <span className="text-red-500">*</span></label>
+//                     <label className="text-sm font-semibold text-gray-800">Permasalahan <span className="text-red-500">*</span></label>
 //                     <textarea name="permasalahan" rows={2} required={formData.kendala === "Ada"} value={formData.permasalahan} onChange={handleChange} 
-//                       className="w-full border-gray-300 border p-3 rounded-xl focus:ring-2 focus:ring-red-500 outline-none bg-white placeholder-gray-400" placeholder="Deskripsikan masalah yang terjadi..."></textarea>
+//                       className="w-full border-gray-300 border p-3 rounded-xl focus:ring-2 focus:ring-red-500 outline-none bg-white text-gray-900 placeholder-gray-400 shadow-sm" placeholder="Deskripsikan masalah yang terjadi..."></textarea>
 //                   </div>
 
 //                   <div className="space-y-2">
-//                     <label className="text-sm font-semibold text-gray-700">Tindakan <span className="text-red-500">*</span></label>
+//                     <label className="text-sm font-semibold text-gray-800">Tindakan <span className="text-red-500">*</span></label>
 //                     <textarea name="tindakan" rows={2} required={formData.kendala === "Ada"} value={formData.tindakan} onChange={handleChange} 
-//                       className="w-full border-gray-300 border p-3 rounded-xl focus:ring-2 focus:ring-red-500 outline-none bg-white placeholder-gray-400" placeholder="Langkah perbaikan yang dilakukan..."></textarea>
+//                       className="w-full border-gray-300 border p-3 rounded-xl focus:ring-2 focus:ring-red-500 outline-none bg-white text-gray-900 placeholder-gray-400 shadow-sm" placeholder="Langkah perbaikan yang dilakukan..."></textarea>
 //                   </div>
 
 //                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 //                     <div className="space-y-2">
-//                       <label className="text-sm font-semibold text-gray-700">PIC <span className="text-red-500">*</span></label>
+//                       <label className="text-sm font-semibold text-gray-800">PIC <span className="text-red-500">*</span></label>
 //                       <input type="text" name="pic" required={formData.kendala === "Ada"} value={formData.pic} onChange={handleChange} 
-//                         className="w-full border-gray-300 border p-3 rounded-xl focus:ring-2 focus:ring-red-500 outline-none bg-white" placeholder="Nama PIC..." />
+//                         className="w-full border-gray-300 border p-3 rounded-xl focus:ring-2 focus:ring-red-500 outline-none bg-white text-gray-900 shadow-sm" placeholder="Nama PIC..." />
 //                     </div>
 //                     <div className="space-y-2">
-//                       <label className="text-sm font-semibold text-gray-700">Mulai Kendala <span className="text-red-500">*</span></label>
+//                       <label className="text-sm font-semibold text-gray-800">Mulai Kendala <span className="text-red-500">*</span></label>
 //                       <input type="time" name="jamMulaiKendala" required={formData.kendala === "Ada"} value={formData.jamMulaiKendala} onChange={handleChange} 
-//                         className="w-full border-gray-300 border p-3 rounded-xl focus:ring-2 focus:ring-red-500 outline-none bg-white" />
+//                         className="w-full border-gray-300 border p-3 rounded-xl focus:ring-2 focus:ring-red-500 outline-none bg-white text-gray-900 shadow-sm" />
 //                     </div>
 //                     <div className="space-y-2">
-//                       <label className="text-sm font-semibold text-gray-700">Selesai Kendala <span className="text-red-500">*</span></label>
+//                       <label className="text-sm font-semibold text-gray-800">Selesai Kendala <span className="text-red-500">*</span></label>
 //                       <input type="time" name="jamSelesaiKendala" required={formData.kendala === "Ada"} value={formData.jamSelesaiKendala} onChange={handleChange} 
-//                         className="w-full border-gray-300 border p-3 rounded-xl focus:ring-2 focus:ring-red-500 outline-none bg-white" />
+//                         className="w-full border-gray-300 border p-3 rounded-xl focus:ring-2 focus:ring-red-500 outline-none bg-white text-gray-900 shadow-sm" />
 //                     </div>
 //                   </div>
 //                 </div>
@@ -412,11 +404,12 @@
 //             </div>
 //           </div>
 
-//           <div className="fixed bottom-0 left-0 w-full bg-white/80 backdrop-blur-md border-t border-gray-200 p-4 z-50">
+//           {/* STICKY SUBMIT BUTTON */}
+//           <div className="fixed bottom-0 left-0 w-full bg-white/90 backdrop-blur-md border-t border-gray-200 p-4 z-50 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
 //             <div className="max-w-4xl mx-auto flex justify-end">
 //               <button type="submit" disabled={isSubmitting} 
-//                 className="w-full md:w-auto px-8 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-lg shadow-lg shadow-red-200 transition-all disabled:opacity-70 disabled:cursor-not-allowed">
-//                 {isSubmitting ? "Memproses..." : "Kirim Laporan"}
+//                 className="w-full md:w-auto px-10 py-3.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-extrabold text-lg shadow-lg shadow-orange-200 transition-all disabled:opacity-70 disabled:cursor-not-allowed">
+//                 {isSubmitting ? "Mengirim Data..." : "Kirim Laporan"}
 //               </button>
 //             </div>
 //           </div>
@@ -597,10 +590,19 @@ export default function LaporanKerjaForm() {
   return (
     <div className="min-h-screen bg-slate-50 font-sans pb-24">
       {/* HEADER BIRU TUA BERLINDO */}
-      <div className="bg-blue-800 h-44 w-full absolute top-0 z-0 rounded-b-3xl shadow-lg"></div>
+      <div className="bg-blue-800 h-52 w-full absolute top-0 z-0 rounded-b-3xl shadow-lg"></div>
 
-      <div className="relative z-10 max-w-4xl mx-auto px-4 pt-12">
-        <div className="text-center mb-8">
+      <div className="relative z-10 max-w-4xl mx-auto px-4 pt-10">
+        
+        {/* HEADER DENGAN LOGO */}
+        <div className="text-center mb-8 flex flex-col items-center justify-center">
+          <div className="bg-white px-6 py-3 rounded-2xl shadow-md mb-4 inline-flex items-center justify-center border border-gray-100">
+            <img 
+              src="/logo-berlindo.png" 
+              alt="Logo PT Berlindo Mitra Utama" 
+              className="h-10 md:h-12 w-auto object-contain" 
+            />
+          </div>
           <h1 className="text-3xl font-extrabold text-white tracking-tight drop-shadow-md">Laporan Harian Kerja</h1>
           <p className="text-blue-100 mt-2 font-medium tracking-wide">Line 1 Production System</p>
         </div>
