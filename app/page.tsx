@@ -168,10 +168,19 @@
 //   return (
 //     <div className="min-h-screen bg-slate-50 font-sans pb-24">
 //       {/* HEADER BIRU TUA BERLINDO */}
-//       <div className="bg-blue-800 h-44 w-full absolute top-0 z-0 rounded-b-3xl shadow-lg"></div>
+//       <div className="bg-blue-800 h-52 w-full absolute top-0 z-0 rounded-b-3xl shadow-lg"></div>
 
-//       <div className="relative z-10 max-w-4xl mx-auto px-4 pt-12">
-//         <div className="text-center mb-8">
+//       <div className="relative z-10 max-w-4xl mx-auto px-4 pt-10">
+        
+//         {/* HEADER DENGAN LOGO */}
+//         <div className="text-center mb-8 flex flex-col items-center justify-center">
+//           <div className="bg-white px-6 py-3 rounded-2xl shadow-md mb-4 inline-flex items-center justify-center border border-gray-100">
+//             <img 
+//               src="/logo-berlindo.png" 
+//               alt="Logo PT Berlindo Mitra Utama" 
+//               className="h-10 md:h-12 w-auto object-contain" 
+//             />
+//           </div>
 //           <h1 className="text-3xl font-extrabold text-white tracking-tight drop-shadow-md">Laporan Harian Kerja</h1>
 //           <p className="text-blue-100 mt-2 font-medium tracking-wide">Line 1 Production System</p>
 //         </div>
@@ -420,6 +429,7 @@
 //   );
 // }
 
+
 "use client";
 
 import { useState } from "react";
@@ -463,7 +473,9 @@ export default function LaporanKerjaForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
-    tanggal: "", shift: "", operator: "", operatorLainnya: "",
+    tanggal: "", shift: "", 
+    operator: [] as string[], // Diubah jadi Array untuk bisa multi-select
+    operatorLainnya: "",
     mesin: "", part: "",
     jamMulaiProses: "", jamSelesaiProses: "",
     qtyOk: "", qtyRepair: "", qtyReject: "",
@@ -478,8 +490,27 @@ export default function LaporanKerjaForm() {
     if (name === "mesin") setFormData((prev) => ({ ...prev, part: "" })); 
   };
 
+  // Handler khusus untuk Klik Operator (Checkbox)
+  const handleOperatorToggle = (op: string) => {
+    setFormData((prev) => {
+      const currentOps = prev.operator;
+      if (currentOps.includes(op)) {
+        return { ...prev, operator: currentOps.filter((o) => o !== op) }; // Hapus jika sudah diklik
+      } else {
+        return { ...prev, operator: [...currentOps, op] }; // Tambah jika belum diklik
+      }
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validasi Operator Manual
+    if (formData.operator.length === 0) {
+      alert("Harap pilih minimal 1 Nama Operator!");
+      return;
+    }
+    
     setIsSubmitting(true);
     
     const formUrl = "https://docs.google.com/forms/d/e/1FAIpQLSd_Ju8f2S7Pfof3ZrkdDZrcy2omOIXBmNRrazgxixxIJnpCnQ/formResponse";
@@ -489,12 +520,15 @@ export default function LaporanKerjaForm() {
     data.append("entry.623231028", formData.tanggal);
     data.append("entry.717102785", formData.shift);
     
-    if (formData.operator === "Lainnya") {
-      data.append("entry.53070038", "__other_option__");
-      data.append("entry.53070038.other_option_response", formData.operatorLainnya);
-    } else {
-      data.append("entry.53070038", formData.operator);
-    }
+    // Looping untuk mengirim setiap operator yang dicentang
+    formData.operator.forEach(op => {
+      if (op === "Lainnya") {
+        data.append("entry.53070038", "__other_option__");
+        data.append("entry.53070038.other_option_response", formData.operatorLainnya);
+      } else {
+        data.append("entry.53070038", op);
+      }
+    });
     
     data.append("entry.187334335", formData.mesin); 
 
@@ -571,7 +605,7 @@ export default function LaporanKerjaForm() {
       alert("Laporan berhasil disubmit!");
       
       setFormData({
-        tanggal: "", shift: "", operator: "", operatorLainnya: "",
+        tanggal: "", shift: "", operator: [], operatorLainnya: "", // Reset state kembali
         mesin: "", part: "", jamMulaiProses: "", jamSelesaiProses: "",
         qtyOk: "", qtyRepair: "", qtyReject: "", lembur: "", kendala: "",
         kendala4M: "", permasalahan: "", tindakan: "", pic: "",
@@ -656,16 +690,17 @@ export default function LaporanKerjaForm() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {OPERATOR_LIST.map((op) => (
                     <label key={op} className="relative cursor-pointer">
-                      <input type="radio" name="operator" value={op} required onChange={handleChange} checked={formData.operator === op} className="peer sr-only" />
+                      {/* Diubah jadi checkbox & memanggil handleOperatorToggle */}
+                      <input type="checkbox" name="operator" value={op} onChange={() => handleOperatorToggle(op)} checked={formData.operator.includes(op)} className="peer sr-only" />
                       <div className="p-3 border border-gray-300 bg-white text-gray-800 rounded-xl text-center text-sm peer-checked:bg-blue-50 peer-checked:text-blue-800 peer-checked:border-blue-500 hover:border-blue-300 transition-all font-semibold shadow-sm">
                         {op}
                       </div>
                     </label>
                   ))}
                 </div>
-                <div className={`grid transition-[grid-template-rows] duration-300 ${formData.operator === "Lainnya" ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
+                <div className={`grid transition-[grid-template-rows] duration-300 ${formData.operator.includes("Lainnya") ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
                   <div className="overflow-hidden">
-                    <input type="text" name="operatorLainnya" placeholder="Ketik nama operator..." required={formData.operator === "Lainnya"} value={formData.operatorLainnya} onChange={handleChange} 
+                    <input type="text" name="operatorLainnya" placeholder="Ketik nama operator..." required={formData.operator.includes("Lainnya")} value={formData.operatorLainnya} onChange={handleChange} 
                       className="w-full mt-3 border-gray-300 border p-3 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-white text-gray-900 shadow-sm" />
                   </div>
                 </div>
