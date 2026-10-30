@@ -16,8 +16,6 @@ Verify normalization and stable IDs in a copy before setting PRODUCTION_ENABLED=
 
 QUEUED confirms source/queue writes, not publication or TF Slip refresh. Monitor worker results separately. Roll back by switching LKH_MODE=test or removing production variables and redeploying. Keep accepted source/ledger rows for audit, and preserve pending IDs when retrying.
 
-## Limits
-
 ## Google Form intake hardening (30 October)
 
 Install `LkhIntakeCore.gs` and `AndonIntakeOct30.gs` in AndonScript. Preserve a data-only snapshot of EventDrivenOct19.gs before changing its two entry points:
@@ -31,4 +29,14 @@ Run `ed30VerifyIsolatedIntake` before routing live submissions through it. It cr
 
 Rollback: restore the backed-up EventDrivenOct19.gs. Leave retained `ED30_INTAKE_` source pointers intact for review. The added helper files alone do not change handlers or triggers.
 
-Idempotency applies to the same ID and payload, not independently created reports describing identical work. Local drafts/outbox are browser-specific; clearing browser data removes recovery. The signing secret authenticates the Vercel server, not individual operators. Keep the new deployment protected during acceptance. Never remove production test rows as cleanup; use the isolated test receiver.
+## Authorized production cutover (30 October)
+
+The user authorized promotion of the existing trusted receiver to operational use. A new production receipt workbook is used; the former test workbook is retained. The URL is moved to Production-only `LKH_PRODUCTION_URL`. Vercel forbids renaming an existing Secret, so the signing secret remains under `LKH_TEST_SECRET`, now scoped to Production only, without being read. Production-only `LKH_PRODUCTION_USE_LEGACY_SECRET=1` explicitly enables that migration path; a future `LKH_PRODUCTION_SECRET` takes priority. `LKH_MODE=production` is Production-only. Preview stays unable to submit until a separate test receiver is configured again. This retires the former test endpoint instead of sharing active test and production credentials.
+
+The receiver validates all eight source schemas and every active machine's part header before enabling writes. Production activation does not change Google Form triggers or downstream approval rules.
+
+Pilot cleanup must wait for all jobs for the exact pilot ID to finish. Archive the source and downstream records, mark its receipt `CANCELLED`, then remove that ID from operational tables and rebuild the affected KPI/operator outputs. Cancelled IDs cannot be submitted again. Never delete a source row while STAGE/PUBLISH work is active, or bulk-delete other reports during cleanup.
+
+## Limits
+
+Idempotency applies to the same ID and payload, not independently created reports describing identical work. Local drafts/outbox are browser-specific; clearing browser data removes recovery. The signing secret authenticates the Vercel server, not individual operators. Prefer isolated tests for routine development; the authorized live pilot is an explicit acceptance exception.

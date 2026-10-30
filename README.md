@@ -7,7 +7,7 @@ Improves the original eight-line Next.js form. Production submission is off by d
 - Persist a pending report ID and exact payload before sending. Retry the same ID after network failure.
 - Display a receipt only after confirmed storage. QUEUED is distinct from publication in TF Slip.
 - Read machines, parts, categories and active operators through an authenticated server-side receiver. Default-line operators sort first; all active operators support cross-line work.
-- Separate test/production receivers, secrets, projects and ledgers. Vercel previews always select test mode.
+- Production credentials are scoped to Production only. Vercel previews always select test mode and cannot use production credentials. See the receiver setup notes for the authorized operational cutover and retained test ledger.
 - Keep the original Google Forms mapping for migration reference; the new client no longer posts to formResponse or guesses pageHistory.
 
 ## Run and verify

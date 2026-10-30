@@ -52,6 +52,10 @@ test('retry never recreates a deleted accepted source response',()=>{
  const f=fixture('production');f.request('submit');f.source.rows.pop();
  assert.equal(f.request('submit').ok,false);assert.equal(f.source.rows.length,1);assert.equal(f.queue.rows.length,4);
 });
+test('cancelled pilot cannot be resubmitted after source cleanup',()=>{
+ const f=fixture('production');f.request('submit');f.ledger.rows[1][3]='CANCELLED';f.source.rows.pop();
+ assert.equal(f.request('submit').ok,false);assert.equal(f.source.rows.length,1);assert.equal(f.queue.rows.length,4);
+});
 test('failed queue job is surfaced instead of falsely returning queued',()=>{
  const f=fixture('production');f.request('submit');f.queue.rows[3][3]='ERROR';
  assert.equal(f.request('submit').ok,false);assert.equal(f.queue.rows.length,4);

@@ -4,14 +4,22 @@ export function receiverMode(): "test" | "production" {
   // Preview deployments never inherit the production write path.
   return process.env.LKH_MODE === "production" && process.env.VERCEL_ENV !== "preview" ? "production" : "test";
 }
+function receiverSecret(mode: "test" | "production") {
+  if (mode === "test") return process.env.LKH_TEST_SECRET;
+  // Vercel cannot rename an existing Secret. During an explicit cutover it
+  // stays under its old key, scoped to Production only, without reading it.
+  return process.env.LKH_PRODUCTION_SECRET ||
+    (process.env.LKH_PRODUCTION_USE_LEGACY_SECRET === "1" ? process.env.LKH_TEST_SECRET : undefined);
+}
 export function receiverReady() {
-  const prefix = receiverMode() === "production" ? "LKH_PRODUCTION" : "LKH_TEST";
-  return Boolean(process.env[prefix + "_URL"] && process.env[prefix + "_SECRET"]);
+  const mode = receiverMode();
+  const prefix = mode === "production" ? "LKH_PRODUCTION" : "LKH_TEST";
+  return Boolean(process.env[prefix + "_URL"] && receiverSecret(mode));
 }
 export async function callReceiver(action: string, payload: unknown) {
   const mode = receiverMode();
   const prefix = mode === "production" ? "LKH_PRODUCTION" : "LKH_TEST";
-  const endpoint = process.env[prefix + "_URL"], secret = process.env[prefix + "_SECRET"];
+  const endpoint = process.env[prefix + "_URL"], secret = receiverSecret(mode);
   if (!endpoint || !secret) throw new Error("RECEIVER_NOT_CONFIGURED");
   const url = new URL(endpoint);
   if (url.protocol !== "https:" || url.hostname !== "script.google.com" || !/^\/macros\/s\/[^/]+\/exec$/.test(url.pathname)) throw new Error("INVALID_RECEIVER_URL");

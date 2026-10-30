@@ -1,7 +1,7 @@
 const {test} = require('node:test');
 const assert = require('node:assert/strict');
 const {initialForm, resetForContext, processInterval, validateSubmission} = require('../.test-build/lkh.js');
-const {receiverMode} = require('../.test-build/receiver.js');
+const {receiverMode,receiverReady} = require('../.test-build/receiver.js');
 const master = {LINE_1:{operators:['Operator A'],mesin_part_mapping:{PRESS:{options:['PART A']}}},LINE_8:{operators:['Operator A'],mesin_part_mapping:{PIPE:{options:['PART A']}}}};
 const now = Date.parse('2026-10-30T12:00:00+07:00');
 const sample = () => ({id:'LKH-12345678-1234-1234-1234-123456789abc',line:'LINE_1',form:{...initialForm,tanggal:'2026-10-29',shift:'1',operator:['Operator A'],mesin:'PRESS',part:'PART A',jamMulaiProses:'07:30',jamSelesaiProses:'16:30',qtyOk:'123',qtyRepair:'0',qtyReject:'0',lembur:'No'}});
@@ -13,3 +13,9 @@ test('repair requires classified issue and contained times',()=>{const p=sample(
 test('malformed shapes, duplicate operators, negative and fractional PCS fail',()=>{for(const mutate of [p=>p.form.qtyOk='-1',p=>p.form.qtyOk='0.5',p=>p.form.operator.push('Operator A'),p=>p.form.qtyOk=3,p=>p.id='arbitrary']){const p=sample();mutate(p);assert.ok(validateSubmission(p,master,now).length);}});
 test('Line 8 dandori accepts real dropdown values and rejects backwards dates',()=>{const p=sample();p.line='LINE_8';Object.assign(p.form,{mesin:'PIPE',jenisAktivitas:'DANDORI',tanggalMulaiDandori:'2026-10-29',tanggalSelesaiDandori:'2026-10-30',jamMulaiDandori:'22:00',jamSelesaiDandori:'02:00',tahapDandori:'MULAI BARU',hasilDandori:'SELESAI - SIAP PRODUKSI',catatanDandori:'Selesai'});assert.deepEqual(validateSubmission(p,master,now),[]);p.form.tanggalSelesaiDandori='2026-10-28';assert.ok(validateSubmission(p,master,now).length);});
 test('preview can never use production receiver even when configured production',()=>{process.env.LKH_MODE='production';process.env.VERCEL_ENV='preview';assert.equal(receiverMode(),'test');delete process.env.LKH_MODE;delete process.env.VERCEL_ENV;});
+test('legacy signing key requires explicit production cutover and never supplies a preview endpoint',()=>{
+ const keys=['LKH_MODE','VERCEL_ENV','LKH_TEST_SECRET','LKH_PRODUCTION_SECRET','LKH_TEST_URL','LKH_PRODUCTION_URL','LKH_PRODUCTION_USE_LEGACY_SECRET'];const before=Object.fromEntries(keys.map(k=>[k,process.env[k]]));
+ try{keys.forEach(k=>delete process.env[k]);Object.assign(process.env,{LKH_MODE:'production',VERCEL_ENV:'production',LKH_PRODUCTION_URL:'https://script.google.com/macros/s/fixture/exec',LKH_TEST_SECRET:'fixture-not-a-real-secret'});
+ assert.equal(receiverReady(),false);process.env.LKH_PRODUCTION_USE_LEGACY_SECRET='1';assert.equal(receiverReady(),true);process.env.VERCEL_ENV='preview';assert.equal(receiverMode(),'test');assert.equal(receiverReady(),false);
+ }finally{keys.forEach(k=>{if(before[k]===undefined)delete process.env[k];else process.env[k]=before[k];});}
+});

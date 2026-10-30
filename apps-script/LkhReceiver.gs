@@ -110,7 +110,7 @@ function lkhWebSubmit_(p, mode) {
   var form={};Object.keys(p.form).sort().forEach(function(k){form[k]=p.form[k];});
   var packed=JSON.stringify({line:p.line,form:form}),hash=lkhWebHex_(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,packed));
   var row=lkhWebFind_(ledger,1,p.id),saved;
-  if(row){saved=ledger.getRange(row,1,1,6).getValues()[0];if(saved[1]!==hash||saved[5]!==mode)throw Error('ID_PAYLOAD_CONFLICT');}
+  if(row){saved=ledger.getRange(row,1,1,6).getValues()[0];if(saved[1]!==hash||saved[5]!==mode)throw Error('ID_PAYLOAD_CONFLICT');if(saved[3]==='CANCELLED')throw Error('SUBMISSION_CANCELLED');}
   else{lkhWebValidate_(p,lkhWebMaster_());ledger.appendRow([p.id,hash,packed,'RECEIVED',new Date().toISOString(),mode]);SpreadsheetApp.flush();row=lkhWebFind_(ledger,1,p.id);saved=ledger.getRange(row,1,1,6).getValues()[0];}
   if(mode==='test'){ledger.getRange(row,4).setValue('TEST_SAVED');SpreadsheetApp.flush();return {id:p.id,state:'TEST_SAVED',mode:mode,receivedAt:String(saved[4])};}
   {
