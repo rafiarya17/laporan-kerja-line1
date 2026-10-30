@@ -1,36 +1,27 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# LKH Berlindo — reliable submission
 
-## Getting Started
+Improves the original eight-line Next.js form. Production submission is off by default. Without a configured receiver, the form is labelled preview and sending stays disabled.
 
-First, run the development server:
+- Reset production details on line/machine changes; require an explicit shift.
+- Validate active master selections, quantities, repair/reject explanations and completed times. Shift 2 midnight rollover uses Asia/Jakarta.
+- Persist a pending report ID and exact payload before sending. Retry the same ID after network failure.
+- Display a receipt only after confirmed storage. QUEUED is distinct from publication in TF Slip.
+- Read machines, parts, categories and active operators through an authenticated server-side receiver. Default-line operators sort first; all active operators support cross-line work.
+- Production credentials are scoped to Production only. Vercel previews always select test mode and cannot use production credentials. See the receiver setup notes for the authorized operational cutover and retained test ledger.
+- Keep the original Google Forms mapping for migration reference; the new client no longer posts to formResponse or guesses pageHistory.
 
-```bash
+## Run and verify
+
+```sh
+npm ci
+npm test
+npm run lint
+npm run build
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Copy `.env.example` to `.env.local` for local configuration. Never commit secrets. See [receiver setup](docs/receiver-setup.md) for Vercel environment variables and Google authorization.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+The receiver persists an immutable payload/hash before writing a source response row and deterministic STAGE job. It resumes interrupted writes by ID. Existing worker approval/auto-approval rules control publication. Submission does not promise immediate TF Slip publication.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Simulated integration tests cover validation, signing, test isolation, same-ID retries, payload conflicts and source/queue write interruptions. They do not establish live production compatibility. Verify source schemas, normalization, worker contract and Line 8 units/dandori in an isolated copy before enabling production.

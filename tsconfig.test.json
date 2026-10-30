@@ -1,0 +1,6 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "module": "commonjs", "moduleResolution": "node", "outDir": ".test-build", "noEmit": false, "incremental": false, "isolatedModules": false, "plugins": [] },
+  "include": ["lib/lkh.ts", "lib/receiver.ts"],
+  "exclude": ["node_modules"]
+}
