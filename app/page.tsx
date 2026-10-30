@@ -89,9 +89,11 @@ export default function LaporanKerjaForm() {
     () => Object.keys(currentConfig?.mesin_part_mapping || {}),
     [currentConfig]
   );
-  const listOperator = currentConfig?.operators || [];
+  const listOperator = [...(currentConfig?.operators || [])].sort((a, b) =>
+    Number(a === "__other_option__") - Number(b === "__other_option__") || a.localeCompare(b, "id", { sensitivity: "base", numeric: true })
+  );
   const selectedMesinData = currentConfig?.mesin_part_mapping?.[formData.mesin];
-  const listPart = selectedMesinData?.options || [];
+  const listPart = [...(selectedMesinData?.options || [])].sort((a, b) => a.localeCompare(b, "id", { sensitivity: "base", numeric: true }));
 
   // --- Flag Line 8 & percabangan aktivitas ---
   const isLine8 = lineSelected === "LINE_8";
