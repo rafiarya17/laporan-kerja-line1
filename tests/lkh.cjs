@@ -6,6 +6,12 @@ const master = {LINE_1:{operators:['Operator A'],mesin_part_mapping:{PRESS:{opti
 const now = Date.parse('2026-10-30T12:00:00+07:00');
 const sample = () => ({id:'LKH-12345678-1234-1234-1234-123456789abc',line:'LINE_1',form:{...initialForm,tanggal:'2026-10-29',shift:'1',operator:['Operator A'],mesin:'PRESS',part:'PART A',jamMulaiProses:'07:30',jamSelesaiProses:'16:30',qtyOk:'123',qtyRepair:'0',qtyReject:'0',lembur:'No'}});
 test('valid completed production passes; missing or inactive master selections fail',()=>{const p=sample();assert.deepEqual(validateSubmission(p,master,now),[]);p.form.part='INACTIVE';assert.ok(validateSubmission(p,master,now).length);});
+test('manual operator requires a single nonempty name and prevents double counting',()=>{
+ const m=structuredClone(master);m.LINE_1.operators.push('__other_option__');const p=sample();p.form.operator=['__other_option__'];
+ assert.ok(validateSubmission(p,m,now).length);p.form.operatorLainnya='Operator Baru';assert.deepEqual(validateSubmission(p,m,now),[]);
+ for(const name of ['A, B','A; B','A\nB','x'.repeat(101)]){p.form.operatorLainnya=name;assert.ok(validateSubmission(p,m,now).length);}
+ p.form.operator=['Operator A','__other_option__'];p.form.operatorLainnya=' operator   a ';assert.ok(validateSubmission(p,m,now).length);
+});
 test('line reset clears quantities, time, issue and overtime while preserving date/shift',()=>{const p=sample();p.form.permasalahan='old';const f=resetForContext(p.form);assert.equal(f.qtyOk,'');assert.equal(f.jamMulaiProses,'');assert.equal(f.permasalahan,'');assert.equal(f.lembur,'');assert.equal(f.operator.length,0);assert.equal(f.tanggal,p.form.tanggal);assert.equal(f.shift,'1');});
 test('shift 2 crossing midnight and post-midnight start use correct calendar date',()=>{const f=sample().form;f.shift='2';f.jamMulaiProses='23:00';f.jamSelesaiProses='02:00';const x=processInterval(f);assert.equal(x.end-x.start,3*3600000);assert.equal(new Date(x.end).toISOString(),'2026-10-29T19:00:00.000Z');f.jamMulaiProses='00:30';assert.equal(new Date(processInterval(f).start).toISOString(),'2026-10-29T17:30:00.000Z');});
 test('zero, reversed day-shift, impossible date and future end are rejected',()=>{for(const mutate of [f=>f.jamSelesaiProses=f.jamMulaiProses,f=>f.jamSelesaiProses='06:00',f=>f.tanggal='2026-02-30',f=>f.tanggal='2026-10-31']){const p=sample();mutate(p.form);assert.ok(validateSubmission(p,master,now).length);}});

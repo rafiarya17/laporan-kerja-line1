@@ -6,7 +6,7 @@ Improves the original eight-line Next.js form. Production submission is off by d
 - Validate active master selections, quantities, repair/reject explanations and completed times. Shift 2 midnight rollover uses Asia/Jakarta.
 - Persist a pending report ID and exact payload before sending. Retry the same ID after network failure.
 - Display a receipt only after confirmed storage. QUEUED is distinct from publication in TF Slip.
-- Read machines, parts, categories and active operators through an authenticated server-side receiver. Default-line operators sort first; all active operators support cross-line work.
+- Read machines, parts, categories and active operators through an authenticated server-side receiver. Operator choices follow MASTER_OPERATOR.LINE_DEFAULT for the selected line; Wardiman and Darmoko are hidden in this web app. Every line offers Lainnya for one manually entered operator name, which is written as a name rather than a UI marker.
 - Production credentials are scoped to Production only. Vercel previews always select test mode and cannot use production credentials. See the receiver setup notes for the authorized operational cutover and retained test ledger.
 - Keep the original Google Forms mapping for migration reference; the new client no longer posts to formResponse or guesses pageHistory.
 

@@ -364,7 +364,7 @@ export default function LaporanKerjaForm() {
                 </div>
                 <div className={`grid transition-[grid-template-rows] duration-300 ${formData.operator.includes("__other_option__") ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
                   <div className="overflow-hidden">
-                    <input type="text" name="operatorLainnya" placeholder="Ketik nama operator manual..."
+                    <input type="text" name="operatorLainnya" placeholder="Ketik nama operator manual..." maxLength={100} aria-label="Nama operator lainnya"
                       required={formData.operator.includes("__other_option__")} value={formData.operatorLainnya} onChange={handleChange}
                       className="w-full mt-3 border-gray-300 border p-3 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-white text-gray-900 shadow-sm" />
                   </div>

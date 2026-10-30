@@ -56,7 +56,11 @@ export function validateSubmission(value: unknown, master: Master, now = Date.no
   if (!machine) errors.push("Pilih mesin yang aktif pada line ini.");
   if (!machine?.options.includes(f.part)) errors.push("Pilih part yang aktif pada mesin ini.");
   if (!f.operator.length || new Set(f.operator).size !== f.operator.length || f.operator.some(o => !c.operators.includes(o))) errors.push("Pilih operator yang valid.");
-  if (f.operator.includes("__other_option__") && !f.operatorLainnya.trim()) errors.push("Nama operator lainnya wajib diisi.");
+  if (f.operator.includes("__other_option__")) {
+    const manual = f.operatorLainnya.trim().replace(/\s+/g, " ");
+    if (!manual || manual.length > 100 || /[,;\r\n\x00-\x1f]/.test(f.operatorLainnya)) errors.push("Isi satu nama operator lainnya, maksimal 100 karakter.");
+    if (f.operator.some(o => o !== "__other_option__" && o.trim().replace(/\s+/g, " ").toLowerCase() === manual.toLowerCase())) errors.push("Operator yang sama tidak boleh dipilih dua kali.");
+  }
   if (p.line === "LINE_8" && !["PRODUKSI", "DANDORI"].includes(f.jenisAktivitas)) errors.push("Pilih jenis aktivitas Line 8.");
   const dandori = p.line === "LINE_8" && f.jenisAktivitas === "DANDORI";
   if (dandori) {

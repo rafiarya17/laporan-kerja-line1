@@ -28,6 +28,24 @@ function fixture(mode='test'){
   return {ctx,props,ledger,source,queue,opened,payload,request};
 }
 test('unsigned requests cannot read master or write ledger',()=>{const f=fixture();assert.equal(f.request('submit',f.payload,false).ok,false);assert.equal(f.opened.length,0);});
+test('live master limits operators to assigned lines, hides requested names and offers manual entry',()=>{
+ const f=fixture();vm.runInContext(fs.readFileSync('apps-script/LkhReceiver.gs','utf8'),f.ctx);f.props.MASTER_SPREADSHEET_ID='master';
+ const ct=[['ACTIVE','LINE_ID','MACHINE_NAME','PART_NAME_STANDARD','PART_CATEGORY'],...Array.from({length:8},(_,i)=>[true,'LINE_'+(i+1),'PRESS','PART A','WIP'])];
+ const op=[['AKTIF','NAMA_OPERATOR','LINE_DEFAULT'],[true,'A','LINE_1'],[true,'B','LINE_2'],[true,'Shared','LINE_1, LINE_5'],[true,'Wardiman','LINE_1'],[true,'Darmoko','LINE_6'],[false,'Inactive','LINE_1'],[true,'Wrong token','LINE_10']];
+ f.ctx.SpreadsheetApp.openById=()=>({getSheetByName:n=>({getDataRange:()=>({getValues:()=>structuredClone(n==='MASTER_CT'?ct:op)})})});
+ const m=f.ctx.lkhWebMaster_();assert.deepEqual([...m.LINE_1.operators],['A','Shared','__other_option__']);assert.deepEqual([...m.LINE_2.operators],['B','__other_option__']);assert.deepEqual([...m.LINE_5.operators],['Shared','__other_option__']);assert.deepEqual([...m.LINE_6.operators],['__other_option__']);
+});
+test('manual names reach source responses exactly once and retry retains the same payload receipt',()=>{
+ const f=fixture('production');f.ctx.lkhWebMaster_=()=>({LINE_1:{operators:['Operator A','__other_option__'],mesin_part_mapping:{PRESS:{options:['PART A']}}}});
+ f.payload.form.operator=['Operator A','__other_option__'];f.payload.form.operatorLainnya='  Operator   Baru  ';
+ const first=f.request('submit');assert.equal(first.ok,true);assert.equal(f.source.rows[1][3],'Operator A, Operator Baru');assert.deepEqual(f.request('submit'),first);assert.equal(f.source.rows.length,2);assert.equal(f.queue.rows.length,4);
+});
+test('invalid or duplicate manual operators never create receipt, source or queue jobs',()=>{
+ for(const name of ['', 'A, B','A\nB','x'.repeat(101),' operator a ']){
+ const f=fixture('production');f.ctx.lkhWebMaster_=()=>({LINE_1:{operators:['Operator A','__other_option__'],mesin_part_mapping:{PRESS:{options:['PART A']}}}});
+ f.payload.form.operator=['Operator A','__other_option__'];f.payload.form.operatorLainnya=name;assert.equal(f.request('submit').ok,false);assert.equal(f.ledger.rows.length,1);assert.equal(f.source.rows.length,1);assert.equal(f.queue.rows.length,3);
+ }
+});
 test('test submissions have durable receipts and never open source or PPC',()=>{const f=fixture();const r=f.request('submit');assert.equal(r.ok,true);assert.equal(r.receipt.state,'TEST_SAVED');assert.equal(f.ledger.rows.length,2);assert.deepEqual([...new Set(f.opened)],['ledger']);});
 test('repeated same ID returns same receipt without appending; altered payload conflicts',()=>{const f=fixture();const a=f.request('submit');const b=f.request('submit');assert.deepEqual(a,b);assert.equal(f.ledger.rows.length,2);f.payload.form.qtyOk='124';assert.equal(f.request('submit').ok,false);assert.equal(f.ledger.rows.length,2);});
 test('production creates one source and one queue job across repeated submissions',()=>{const f=fixture('production');assert.equal(f.request('submit').receipt.state,'QUEUED');assert.equal(f.request('submit').receipt.state,'QUEUED');assert.equal(f.source.rows.length,2);assert.equal(f.queue.rows.length,4);const job=JSON.parse(f.queue.rows[3][6]);assert.equal(job.id,f.payload.id);assert.equal(job.row,2);});
