@@ -4,6 +4,7 @@
  * Production additionally requires PRODUCTION_ENABLED=1, SOURCES_JSON, PPC_SPREADSHEET_ID.
  * Never delete ledger/source rows to cancel a report; use the existing revision workflow.
  */
+function verifyReceiverIntakeOct30(){ return verifyLkhTestRetry(); }
 function doPost(e) {
   try {
     if (!e || !e.postData || e.postData.contents.length > 30000) throw Error('INVALID_REQUEST');
@@ -112,19 +113,18 @@ function lkhWebSubmit_(p, mode) {
   if(row){saved=ledger.getRange(row,1,1,6).getValues()[0];if(saved[1]!==hash||saved[5]!==mode)throw Error('ID_PAYLOAD_CONFLICT');}
   else{lkhWebValidate_(p,lkhWebMaster_());ledger.appendRow([p.id,hash,packed,'RECEIVED',new Date().toISOString(),mode]);SpreadsheetApp.flush();row=lkhWebFind_(ledger,1,p.id);saved=ledger.getRange(row,1,1,6).getValues()[0];}
   if(mode==='test'){ledger.getRange(row,4).setValue('TEST_SAVED');SpreadsheetApp.flush();return {id:p.id,state:'TEST_SAVED',mode:mode,receivedAt:String(saved[4])};}
-  if(saved[3]!=='QUEUED'){
+  {
     var sourceMap=JSON.parse(props.getProperty('SOURCES_JSON')||'{}'),source=sourceMap[p.line],ppc=props.getProperty('PPC_SPREADSHEET_ID');
     if(!source||!ppc||source.id===ledgerId||ppc===ledgerId)throw Error('PRODUCTION_CONFIGURATION_INVALID');
     var sh=SpreadsheetApp.openById(source.id).getSheetByName(source.sheet),headers=sh.getRange(1,1,1,sh.getLastColumn()).getDisplayValues()[0],idCol=headers.indexOf('ID LKH (otomatis)')+1;
     if(!idCol)throw Error('SOURCE_ID_COLUMN_MISSING');
     var sourceRow=lkhWebFind_(sh,idCol,p.id);
     if(!sourceRow){
+      if(saved[3]==='QUEUED')throw Error('SOURCE_REMOVED_REQUIRES_REVIEW');
       var values=lkhWebSourceValues_(p,headers);sh.appendRow(values);SpreadsheetApp.flush();sourceRow=lkhWebFind_(sh,idCol,p.id);if(!sourceRow)throw Error('SOURCE_WRITE_UNCONFIRMED');
     }
     var queue=SpreadsheetApp.openById(ppc).getSheetByName('_ANTREAN_ANDON');if(!queue)throw Error('QUEUE_MISSING');
-    var jobId='WEB-'+p.id;
-    if(!lkhWebFind_(queue,1,jobId))queue.appendRow([jobId,'STAGE',new Date(),'PENDING',0,'',JSON.stringify({source:source.id,row:sourceRow,id:p.id}),'','']);
-    queue.getRange('A1').setValue(Utilities.getUuid());SpreadsheetApp.flush();
+    lkhIntakeQueue_(queue,{source:source.id,row:sourceRow,id:p.id});
     ledger.getRange(row,4).setValue('QUEUED');SpreadsheetApp.flush();
   }
   return {id:p.id,state:'QUEUED',mode:mode,receivedAt:String(saved[4])};
