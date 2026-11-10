@@ -1,5 +1,5 @@
-import type { Receipt, Submission } from "@/lib/lkh";
-import { validateSubmission } from "@/lib/lkh";
+import type { Submission } from "@/lib/lkh";
+import { submitReport } from "@/lib/submission-service";
 import { callReceiver, receiverMode, receiverReady } from "@/lib/receiver";
 
 export const maxDuration = 90;
@@ -14,16 +14,8 @@ export async function POST(request: Request) {
     if (new TextEncoder().encode(raw).length > 24000) return fail("Laporan terlalu panjang.", 413);
     let payload: Submission;
     try { payload = JSON.parse(raw); } catch { return fail("Format laporan tidak valid.", 400); }
-    const known = await callReceiver("lookup", payload);
-    if (known.exists !== true) {
-      const current = await callReceiver("master", {});
-      const errors = validateSubmission(payload, current.mapping);
-      if (errors.length) return fail(errors.join(" "), 400);
-    }
-    const result = await callReceiver("submit", payload);
-    const receipt = result.receipt as Receipt;
-    if (!receipt || receipt.id !== payload.id || receipt.mode !== receiverMode() || !["TEST_SAVED", "QUEUED"].includes(receipt.state) || (receipt.mode === "test" && receipt.state !== "TEST_SAVED") || (receipt.mode === "production" && receipt.state !== "QUEUED") || !Number.isFinite(Date.parse(receipt.receivedAt))) throw new Error("INVALID_RECEIPT");
-    return Response.json({ ok: true, receipt }, { headers: { "Cache-Control": "no-store" } });
+    const result = await submitReport(payload, request.headers.get("x-lkh-retry") === "1", receiverMode(), callReceiver);
+    return Response.json(result.body, {status: result.status, headers: {"Cache-Control": "no-store"}});
   } catch {
     return fail("Penerimaan belum dapat dikonfirmasi. Jangan buat laporan baru; coba kirim ulang dengan ID yang sama.", 502);
   }

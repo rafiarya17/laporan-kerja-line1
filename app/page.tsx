@@ -144,7 +144,7 @@ export default function LaporanKerjaForm() {
   // ============================================================
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (inFlight.current || !connection.ready || !storageAvailable) return;
+    if (inFlight.current || (!connection.ready && !pending) || !storageAvailable) return;
     const payload: Submission = pending || {id: "LKH-" + crypto.randomUUID(), line: lineSelected, form: formData};
     const errors = pending ? [] : validateSubmission(payload, mapping);
     if (errors.length) { setToast({type: "error", msg: errors.join(" ")}); window.scrollTo({top: 0, behavior: "smooth"}); return; }
@@ -152,10 +152,10 @@ export default function LaporanKerjaForm() {
     catch { setStorageAvailable(false); setToast({type: "error", msg: "Aktifkan penyimpanan browser sebelum mengirim agar ID laporan aman saat koneksi terputus."}); return; }
     inFlight.current = true; setIsSubmitting(true); setPending(payload); setToast(null);
     try {
-      const response = await fetch("/api/submissions", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload), signal: AbortSignal.timeout(80000) });
-      const result = await response.json();
+      const response = await fetch("/api/submissions", { method: "POST", headers: {"Content-Type": "application/json", "X-LKH-Retry": pending ? "1" : "0"}, body: JSON.stringify(payload), signal: AbortSignal.timeout(80000) });
+      const result = await response.json().catch(() => { throw Error("Balasan penerima belum terbaca. Simpan ID laporan ini dan coba kirim ulang dengan ID yang sama."); });
       if (!response.ok || result.ok !== true || result.receipt?.id !== payload.id) {
-        if (response.status >= 400 && response.status < 500) { localStorage.removeItem(PENDING_KEY); setPending(null); }
+        if (result.clearPending === true) { localStorage.removeItem(PENDING_KEY); setPending(null); }
         throw Error(result.error || "Penerimaan belum dapat dikonfirmasi.");
       }
       // Persist the receipt before clearing the pending ID or the input.
@@ -165,7 +165,8 @@ export default function LaporanKerjaForm() {
       setToast({type: "success", msg: result.receipt.mode === "test" ? "Data uji tersimpan di tempat pengujian." : "Laporan tersimpan dan masuk antrean. Belum berarti terbit di TF Slip."});
       window.scrollTo({top: 0, behavior: "smooth"});
     } catch (error) {
-      setToast({type: "error", msg: error instanceof Error ? error.message : "Belum ada konfirmasi. Coba ulang dengan ID laporan yang sama."});
+      const networkError = error instanceof Error && ["TimeoutError", "AbortError", "TypeError"].includes(error.name);
+      setToast({type: "error", msg: networkError ? "Koneksi atau waktu tunggu terputus. Laporan mungkin masih diproses. Coba kirim ulang dengan ID yang sama." : error instanceof Error ? error.message : "Belum ada konfirmasi. Coba ulang dengan ID laporan yang sama."});
     } finally { inFlight.current = false; setIsSubmitting(false); }
   };
 
@@ -273,7 +274,7 @@ export default function LaporanKerjaForm() {
           {!storageAvailable && <p className="text-sm text-red-700">Penyimpanan browser tidak tersedia. Aktifkan sebelum mengirim laporan.</p>}
           {draftAvailable && !pending && <button type="button" onClick={restoreDraft} className="font-bold text-blue-800 underline">Pulihkan draft sebelumnya</button>}
           {pending && <p className="text-sm text-amber-900">Menunggu konfirmasi: <strong>{pending.id}</strong>. Isian dikunci agar kirim ulang memakai laporan yang sama. Gunakan tombol Coba Kirim Ulang di bawah.</p>}
-          {receipt && <p className="text-sm break-all">Bukti penerimaan terakhir: <strong>{receipt.id}</strong> — {receipt.state === "TEST_SAVED" ? "DATA UJI TERSIMPAN" : "TERSIMPAN / MASUK ANTREAN, BELUM KONFIRMASI TF SLIP"}</p>}
+          {receipt && <p className="text-sm break-all">{pending && pending.id !== receipt.id ? "Bukti laporan sebelumnya (bukan laporan yang sedang menunggu): " : "Bukti penerimaan terakhir: "}<strong>{receipt.id}</strong> — {receipt.state === "TEST_SAVED" ? "DATA UJI TERSIMPAN" : "TERSIMPAN / MASUK ANTREAN, BELUM KONFIRMASI TF SLIP"}</p>}
         </div>
         <form onSubmit={handleSubmit} className="space-y-6">
           <fieldset disabled={isSubmitting || !!pending} className="space-y-6 disabled:opacity-70">
@@ -689,7 +690,7 @@ export default function LaporanKerjaForm() {
                 {isLine8 && formData.jenisAktivitas && <> • {formData.jenisAktivitas}</>}
                 {formData.operator.length > 0 && <> • {formData.operator.length} operator</>}
               </div>
-              <button type="submit" disabled={isSubmitting || !connection.ready || !storageAvailable}
+              <button type="submit" disabled={isSubmitting || (!connection.ready && !pending) || !storageAvailable}
                 className="w-full sm:w-auto px-10 py-3.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-extrabold text-lg shadow-lg shadow-orange-200 transition-all disabled:opacity-70 disabled:cursor-not-allowed">
                 {isSubmitting ? "Mengirim Data..." : (pending ? "Coba Kirim Ulang" : connection.mode === "test" ? "Kirim Data Uji" : "Kirim Laporan")}
               </button>
