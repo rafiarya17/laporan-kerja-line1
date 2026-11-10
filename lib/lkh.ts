@@ -40,7 +40,7 @@ export function processInterval(form: LkhForm): { start: number; end: number } |
 export function validateSubmission(value: unknown, master: Master, now = Date.now()): string[] {
   if (!value || typeof value !== "object") return ["Format laporan tidak valid."];
   const p = value as Submission;
-  if (typeof p.id !== "string" || !/^LKH-[0-9a-f-]{36}$/i.test(p.id)) return ["ID laporan tidak valid."];
+  if (typeof p.id !== "string" || !(p.line === "LINE_99" ? /^LKH99-[0-9a-f-]{36}$/i : /^LKH-[0-9a-f-]{36}$/i).test(p.id)) return ["ID laporan tidak valid."];
   const c = Object.hasOwn(master, p.line) ? master[p.line] : undefined;
   if (!c || !p.form || typeof p.form !== "object") return ["Line laporan tidak valid."];
   const f = p.form;

@@ -5,7 +5,7 @@ type Call = (action: string, payload: unknown, timeoutMs?: number) => Promise<an
 export async function submitReport(payload: Submission, retry: boolean, mode: 'test' | 'production', call: Call) {
   let stage = 'lookup';
   const started = Date.now();
-  const id = /^LKH-[0-9a-f-]{36}$/i.test(payload?.id || '') ? payload.id : 'invalid';
+  const id = /^LKH(?:99)?-[0-9a-f-]{36}$/i.test(payload?.id || '') ? payload.id : 'invalid';
   try {
     let known = false;
     let knownReceipt: Receipt | undefined;

@@ -58,7 +58,7 @@ export default function LaporanKerjaForm() {
       const savedPending = localStorage.getItem(PENDING_KEY);
       if (savedPending) {
         const p = JSON.parse(savedPending) as Submission;
-        if (!p.id || !p.form || !SNAPSHOT[p.line]) throw Error();
+        if (!p.id || !p.form || (!Object.hasOwn(SNAPSHOT, p.line) && p.line !== "LINE_99")) throw Error();
         setPending(p); setLineSelected(p.line); setFormData(p.form);
       }
       setDraftAvailable(Boolean(localStorage.getItem(DRAFT_KEY)));
@@ -145,7 +145,7 @@ export default function LaporanKerjaForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (inFlight.current || (!connection.ready && !pending) || !storageAvailable) return;
-    const payload: Submission = pending || {id: "LKH-" + crypto.randomUUID(), line: lineSelected, form: formData};
+    const payload: Submission = pending || {id: (lineSelected === "LINE_99" ? "LKH99-" : "LKH-") + crypto.randomUUID(), line: lineSelected, form: formData};
     const errors = pending ? [] : validateSubmission(payload, mapping);
     if (errors.length) { setToast({type: "error", msg: errors.join(" ")}); window.scrollTo({top: 0, behavior: "smooth"}); return; }
     try { localStorage.setItem(PENDING_KEY, JSON.stringify(payload)); }
@@ -162,7 +162,7 @@ export default function LaporanKerjaForm() {
       localStorage.setItem(RECEIPT_KEY, JSON.stringify(result.receipt));
       localStorage.removeItem(PENDING_KEY); localStorage.removeItem(DRAFT_KEY);
       setReceipt(result.receipt); setPending(null); setFormData(initialForm); setDraftAvailable(false);
-      setToast({type: "success", msg: result.receipt.mode === "test" ? "Data uji tersimpan di tempat pengujian." : "Laporan tersimpan dan masuk antrean. Belum berarti terbit di TF Slip."});
+      setToast({type: "success", msg: result.receipt.mode === "test" ? "Data uji tersimpan di tempat pengujian." : payload.line === "LINE_99" ? "Laporan uji tersimpan. Tunggu muncul di dashboard leader, lalu revisi atau setujui sebelum terbit di TF Slip." : "Laporan tersimpan dan masuk antrean. Belum berarti terbit di TF Slip."});
       window.scrollTo({top: 0, behavior: "smooth"});
     } catch (error) {
       const networkError = error instanceof Error && ["TimeoutError", "AbortError", "TypeError"].includes(error.name);
@@ -274,8 +274,13 @@ export default function LaporanKerjaForm() {
           {!storageAvailable && <p className="text-sm text-red-700">Penyimpanan browser tidak tersedia. Aktifkan sebelum mengirim laporan.</p>}
           {draftAvailable && !pending && <button type="button" onClick={restoreDraft} className="font-bold text-blue-800 underline">Pulihkan draft sebelumnya</button>}
           {pending && <p className="text-sm text-amber-900">Menunggu konfirmasi: <strong>{pending.id}</strong>. Isian dikunci agar kirim ulang memakai laporan yang sama. Gunakan tombol Coba Kirim Ulang di bawah.</p>}
-          {receipt && <p className="text-sm break-all">{pending && pending.id !== receipt.id ? "Bukti laporan sebelumnya (bukan laporan yang sedang menunggu): " : "Bukti penerimaan terakhir: "}<strong>{receipt.id}</strong> — {receipt.state === "TEST_SAVED" ? "DATA UJI TERSIMPAN" : "TERSIMPAN / MASUK ANTREAN, BELUM KONFIRMASI TF SLIP"}</p>}
+          {receipt && <p className="text-sm break-all">{pending && pending.id !== receipt.id ? "Bukti laporan sebelumnya (bukan laporan yang sedang menunggu): " : "Bukti penerimaan terakhir: "}<strong>{receipt.id}</strong> — {receipt.state === "TEST_SAVED" ? "DATA UJI TERSIMPAN" : receipt.id.startsWith("LKH99-") ? "UJI TERSIMPAN / ANTREAN VERIFIKASI LEADER, BELUM TERBIT TF SLIP" : "TERSIMPAN / MASUK ANTREAN, BELUM KONFIRMASI TF SLIP"}</p>}
         </div>
+        {lineSelected === "LINE_99" && <div className="rounded-2xl border border-amber-300 bg-amber-50 p-5 mb-6 text-amber-950" role="note">
+          <p className="font-bold">Line 99 — Pengujian alur lengkap</p>
+          <p className="text-sm mt-2">Gunakan mesin dummy dan part BODY_DUMMY-*. Laporan diteruskan ke dashboard leader untuk diperiksa, direvisi, atau disetujui. Setelah disetujui, hasil masuk TF Slip yang sama dengan penanda IS_TEST.</p>
+          <p className="text-sm mt-2">Satu laporan boleh memilih operator dan helper. Untuk dua laporan terpisah pada part–mesin yang sama, kirim masing-masing sekali.</p>
+        </div>}
         <form onSubmit={handleSubmit} className="space-y-6">
           <fieldset disabled={isSubmitting || !!pending} className="space-y-6 disabled:opacity-70">
           {/* SECTION 1 */}
@@ -297,7 +302,7 @@ export default function LaporanKerjaForm() {
                   className="w-full border-gray-300 border p-3 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-blue-50 text-blue-900 font-bold shadow-sm"
                 >
                   {Object.keys(mapping).map((l) => (
-                    <option key={l} value={l}>{l.replace("_", " ")}</option>
+                    <option key={l} value={l}>{l === "LINE_99" ? "LINE 99 — Uji" : l.replace("_", " ")}</option>
                   ))}
                 </select>
               </div>

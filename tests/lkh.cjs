@@ -25,3 +25,7 @@ test('legacy signing key requires explicit production cutover and never supplies
  assert.equal(receiverReady(),false);process.env.LKH_PRODUCTION_USE_LEGACY_SECRET='1';assert.equal(receiverReady(),true);process.env.VERCEL_ENV='preview';assert.equal(receiverMode(),'test');assert.equal(receiverReady(),false);
  }finally{keys.forEach(k=>{if(before[k]===undefined)delete process.env[k];else process.env[k]=before[k];});}
 });
+test('Line 99 validates the same complete operator form but uses a separate ID namespace',()=>{
+ const p=sample(),m={...master,LINE_99:master.LINE_1};p.line='LINE_99';p.id=p.id.replace('LKH-','LKH99-');assert.deepEqual(validateSubmission(p,m,now),[]);
+ p.line='LINE_1';assert.ok(validateSubmission(p,m,now).length);p.line='LINE_99';p.id=p.id.replace('LKH99-','LKH-');assert.ok(validateSubmission(p,m,now).length);
+});
