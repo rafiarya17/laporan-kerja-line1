@@ -8,7 +8,8 @@ export async function submitReport(payload: Submission, retry: boolean, mode: 't
   const id = /^LKH-[0-9a-f-]{36}$/i.test(payload?.id || '') ? payload.id : 'invalid';
   try {
     let known = false;
-    if (retry) known = (await call('lookup', payload)).exists === true;
+    let knownReceipt: Receipt | undefined;
+    if (retry) { const status = await call('lookup', payload); known = status.exists === true; if (known) knownReceipt = status.receipt; }
     if (!known) {
       stage = 'master';
       let errors: string[] = [];
@@ -18,15 +19,15 @@ export async function submitReport(payload: Submission, retry: boolean, mode: 't
       // Previously accepted reports must survive master changes and outages.
       if (masterFailure || errors.length) {
         stage = 'lookup';
-        if (!retry) known = (await call('lookup', payload)).exists === true;
+        if (!retry) { const status = await call('lookup', payload); known = status.exists === true; if (known) knownReceipt = status.receipt; }
         if (!known) {
           if (masterFailure) throw masterFailure;
           return { status: 400, body: {ok: false, error: errors.join(' '), clearPending: true} };
         }
       }
     }
-    stage = 'submit';
-    const result = await call('submit', payload);
+    stage = knownReceipt ? 'confirm' : 'submit';
+    const result = knownReceipt ? {receipt: knownReceipt} : await call('submit', payload);
     const receipt = result.receipt as Receipt;
     if (!receipt || receipt.id !== payload.id || receipt.mode !== mode || receipt.state !== (mode === 'production' ? 'QUEUED' : 'TEST_SAVED') || !Number.isFinite(Date.parse(receipt.receivedAt))) throw new ReceiverError('INVALID_RECEIPT');
     console.info(JSON.stringify({event:'lkh_submission', id, stage, outcome:'accepted', elapsedMs:Date.now()-started}));
