@@ -4,6 +4,10 @@ const params = new URLSearchParams(location.search);
 const today = new Intl.DateTimeFormat('en-CA', {timeZone:'Asia/Jakarta', year:'numeric', month:'2-digit', day:'2-digit'}).format(new Date());
 element('date').value = /^\d{4}-\d{2}-\d{2}$/.test(params.get('date') || '') ? params.get('date') : today;
 element('shift').value = params.get('shift') === '2' ? '2' : '1';
+element('source').value = params.get('source') === 'example' ? 'example' : 'leader';
+let preferredLine = params.has('line') ? params.get('line') : 'LINE_1';
+let preferredMachine = params.has('machine') ? params.get('machine') : 'AUTO CHAMPER';
+element('search').value = params.get('part') || '';
 let items = [], epoch = 0, controller;
 function text(parent, tag, value, className) {
   const node = document.createElement(tag);
@@ -31,6 +35,7 @@ function filterMachines() {
   options('machine',items.filter(item => !element('line').value || item.line === element('line').value).map(item => item.machine),'Semua mesin');
 }
 function render() {
+  element('leader-link').href = '/leader?' + new URLSearchParams({date:element('date').value,shift:element('shift').value,line:element('line').value || preferredLine || ''});
   const query = element('search').value.trim().toLocaleLowerCase('id-ID');
   const visible = items.filter(item => (!element('line').value || item.line === element('line').value) && (!element('machine').value || item.machine === element('machine').value) && (item.part+' '+item.machine).toLocaleLowerCase('id-ID').includes(query));
   const cards = element('cards');
@@ -83,14 +88,24 @@ async function load() {
       items = body.data.targets.flatMap(target => (target.items || []).map(item => ({date,shift,line:target.line,machine:item.machine,part:item.part,targetQty:item.targetQty,version:target.version,source:'LIVE_READ_ONLY'})));
       element('notice').textContent = 'Target leader berhasil dimuat.';
     }
-    options('line',items.map(item => item.line),'Semua line'); filterMachines(); render();
+    options('line',items.map(item => item.line),'Semua line');
+    if (preferredLine) {
+      if (![...element('line').options].some(option => option.value === preferredLine)) element('line').add(new Option(preferredLine.replace('LINE_','Line '),preferredLine));
+      element('line').value = preferredLine;
+    }
+    filterMachines();
+    if (preferredMachine) {
+      if (![...element('machine').options].some(option => option.value === preferredMachine)) element('machine').add(new Option(preferredMachine,preferredMachine));
+      element('machine').value = preferredMachine;
+    }
+    render();
   } catch(error) {
     if (current === epoch) element('notice').textContent = error.message || 'Target gagal dimuat.';
   } finally { if (current === epoch) element('reload').disabled = false; }
 }
 element('reload').onclick = load;
 for (const id of ['date','shift','source']) element(id).onchange = load;
-element('line').onchange = () => { filterMachines(); render(); };
-element('machine').onchange = render;
+element('line').onchange = () => { preferredLine=element('line').value; preferredMachine=''; filterMachines(); render(); };
+element('machine').onchange = () => { preferredMachine=element('machine').value; render(); };
 element('search').oninput = render;
 load();
