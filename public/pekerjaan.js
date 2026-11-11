@@ -8,7 +8,8 @@ element('source').value = params.get('source') === 'example' ? 'example' : 'lead
 let preferredLine = params.has('line') ? params.get('line') : 'LINE_99';
 let preferredMachine = params.has('machine') ? params.get('machine') : 'AUTO CHAMPER';
 element('search').value = params.get('part') || '';
-let items = [], epoch = 0, controller;
+let items = [], epoch = 0, controller, plcPilotReady = false;
+fetch('/api/champer/capabilities',{cache:'no-store'}).then(r=>r.json()).then(c=>{plcPilotReady=c.enabled===true;render();}).catch(()=>{});
 function text(parent, tag, value, className) {
   const node = document.createElement(tag);
   node.textContent = value;
@@ -59,6 +60,11 @@ function render() {
         try { sessionStorage.setItem('champer-selected-target',JSON.stringify(item)); }
         catch { event.preventDefault(); element('notice').textContent = 'Pilihan belum dapat disimpan. Izinkan penyimpanan browser, lalu coba lagi.'; }
       };
+      if (plcPilotReady && item.source === 'LIVE_READ_ONLY') {
+        const live = text(card,'a','Pilih · baca PLC Champer (Line 99 Uji)','action');
+        live.href='/champer-plc.html';
+        live.onclick=event=>{try{sessionStorage.setItem('champer-selected-target',JSON.stringify(item));}catch{event.preventDefault();element('notice').textContent='Pilihan belum dapat disimpan pada browser.';}};
+      }
     } else {
       text(card,'p','Catat hasil melalui form laporan. Pilih mesin dan part ini di dalam form.','hint');
       const link = text(card,'a','Buka form laporan','action');
