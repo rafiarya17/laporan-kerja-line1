@@ -86,7 +86,7 @@ async function load() {
     if (example) items = examples(date,shift);
     else {
       element('notice').textContent = 'Memuat target leader…';
-      const response = await fetch('/api/leader',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'snapshot',phase:'targets',date,shift,line:''}),signal:AbortSignal.any([controller.signal,AbortSignal.timeout(80000)])});
+      const response = await andonFetch('/api/leader',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'snapshot',phase:'targets',date,shift,line:''}),signal:controller.signal});
       const body = await response.json();
       if (current !== epoch) return;
       if (!response.ok || !body.ok) throw Error('Target leader belum dapat dibaca pada alamat ini. Preview dapat diuji melalui sumber Contoh simulasi.');

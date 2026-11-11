@@ -43,7 +43,7 @@ $('target-form').onsubmit=e=>{e.preventDefault();try{mutate({type:'TARGETS',sour
 for(const id of ['date','shift'])$(id).onchange=()=>{selection=null;render();};
 $('live').onclick=async()=>{
  if(busy||C.active(state))return;const date=$('date').value,shift=$('shift').value;busy=true;render();notice('Membaca target leader. Tidak menyimpan perubahan ke sistem produksi.');
- try{const response=await fetch('/api/leader',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'snapshot',phase:'targets',date,shift,line:C.LINE}),signal:AbortSignal.timeout(80000)});const body=await response.json();if(!response.ok||!body.ok)throw Error('Target leader belum tersedia pada host ini. Gunakan target contoh; akses produksi tidak diaktifkan untuk preview.');const items=C.targets(body.data,date,shift);busy=false;await mutate({type:'TARGETS',source:'LIVE_READ_ONLY',targets:items});}
+ try{const response=await andonFetch('/api/leader',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'snapshot',phase:'targets',date,shift,line:C.LINE})});const body=await response.json();if(!response.ok||!body.ok)throw Error('Target leader belum tersedia pada host ini. Gunakan target contoh; akses produksi tidak diaktifkan untuk preview.');const items=C.targets(body.data,date,shift);busy=false;await mutate({type:'TARGETS',source:'LIVE_READ_ONLY',targets:items});}
  catch(e){notice(e.message||'Target gagal dimuat. Target lama tidak diganti.',true);}finally{busy=false;render();}
 };
 $('prepare').onclick=()=>mutate({type:'CREATE',targetKey:selection,operators:[...$('operators').querySelectorAll('input:checked')].map(i=>i.value),jobId:crypto.randomUUID()});

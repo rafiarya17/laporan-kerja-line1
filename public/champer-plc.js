@@ -29,7 +29,7 @@ function reportControls(j){
  }
  el('history').append(box);
 }
-async function call(path,body){const r=await fetch('/api/champer/'+path,{method:body===undefined?'GET':'POST',headers:{'content-type':'application/json'},body:body===undefined?undefined:JSON.stringify(body),cache:'no-store',signal:AbortSignal.timeout(80000)});const b=await r.json();if(!r.ok){const e=Error(messages[b.error]||b.error||'Permintaan belum terkonfirmasi.');e.status=r.status;e.code=b.error;throw e;}return b;}
+async function call(path,body){const r=await andonFetch('/api/champer/'+path,{method:body===undefined?'GET':'POST',headers:{'content-type':'application/json'},body:body===undefined?undefined:JSON.stringify(body),cache:'no-store'});const b=await r.json();if(!r.ok){const e=Error(messages[b.error]||b.error||'Permintaan belum terkonfirmasi.');e.status=r.status;e.code=b.error;throw e;}return b;}
 function display(){
  current=snapshot?.jobs.find(j=>!closed(j))||null;
  el('retry').hidden=!pending;
@@ -63,4 +63,4 @@ el('close').onclick=()=>{const reason=prompt('Alasan menutup sesi untuk pemeriks
 el('save-quality').onclick=()=>act('quality',{quality:Object.fromEntries(['ok','repair','reject','issue','classification','problem','action','pic'].map(k=>[k,el(k).value.trim()]))});
 el('issue').onchange=()=>{el('issue-fields').hidden=el('issue').value!=='Ada';};
 el('export').onclick=()=>{const url=URL.createObjectURL(new Blob([JSON.stringify(snapshot,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='champer-cloud-pilot.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),5000);};
-(async()=>{try{const r=await fetch('/api/master',{cache:'no-store'}),m=await r.json();if(m.ready&&m.source==='live'){for(const name of m.mapping.LINE_99.operators.filter(x=>x!=='__other_option__')){const label=document.createElement('label');label.className='check';const input=document.createElement('input');input.type='checkbox';input.value=name;label.append(input,document.createTextNode(name));el('operators').append(label);}masterReady=true;}}catch{}await refresh();})();
+(async()=>{try{const r=await andonFetch('/api/master',{cache:'no-store'}),m=await r.json();if(m.ready&&m.source==='live'){for(const name of m.mapping.LINE_99.operators.filter(x=>x!=='__other_option__')){const label=document.createElement('label');label.className='check';const input=document.createElement('input');input.type='checkbox';input.value=name;label.append(input,document.createTextNode(name));el('operators').append(label);}masterReady=true;}}catch{}await refresh();})();
