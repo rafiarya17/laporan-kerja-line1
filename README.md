@@ -25,3 +25,7 @@ Copy `.env.example` to `.env.local` for local configuration. Never commit secret
 The receiver persists an immutable payload/hash before writing a source response row and deterministic STAGE job. It resumes interrupted writes by ID. Existing worker approval/auto-approval rules control publication. Submission does not promise immediate TF Slip publication.
 
 Simulated integration tests cover validation, signing, test isolation, same-ID retries, payload conflicts and source/queue write interruptions. They do not establish live production compatibility. Verify source schemas, normalization, worker contract and Line 8 units/dandori in an isolated copy before enabling production.
+
+## Leader workspace and champer handoff
+
+The existing leader dashboard is served at `/leader` (static assets under `public/leader*`, with a Next.js rewrite). It uses the existing `/api/leader` gateway. See [current system context for ChatGPT Desktop](docs/HANDOFF-CHATGPT-DESKTOP-CHAMPER.md) before developing the champer-only hybrid workflow. PLC/session support is not implemented by this hosting change. Start from `feat/leader-workspace-vercel-20261111`, not the older default branch.
