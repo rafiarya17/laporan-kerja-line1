@@ -57,3 +57,20 @@ $('export').onclick=()=>{const blob=new Blob([JSON.stringify(state,null,2)],{typ
 window.addEventListener('storage',e=>{if(e.key===KEY){try{state=read();render();}catch(err){storageOK=false;notice(err.message,true);render();}}});
 if(!navigator.locks)notice('Buka melalui HTTPS atau localhost pada browser terbaru agar satu sesi tidak dibuat dua tab bersamaan.',true);
 render();
+async function acceptSelectedTarget() {
+ if(new URLSearchParams(location.search).get('from')!=='pekerjaan')return;
+ try {
+  const raw=sessionStorage.getItem('champer-selected-target');
+  if(!raw)return;
+  const chosen=JSON.parse(raw);
+  if(C.active(state)){notice('Selesaikan atau tutup sesi yang masih terbuka sebelum memilih pekerjaan lain.',true);return;}
+  if(chosen.line!==C.LINE||chosen.machine!==C.MACHINE||!/^\d{4}-\d{2}-\d{2}$/.test(chosen.date)||!['1','2'].includes(chosen.shift))throw Error('Pilihan pekerjaan tidak sesuai untuk Champer.');
+  const targets=C.targets({date:chosen.date,shift:chosen.shift,targets:[{line:chosen.line,version:chosen.version,items:[chosen]}]},chosen.date,chosen.shift);
+  await mutate({type:'TARGETS',source:chosen.source==='LIVE_READ_ONLY'?'LIVE_READ_ONLY':'CONTOH',targets});
+  if(state.targets.some(target=>target.key===targets[0].key)){
+   $('date').value=chosen.date;$('shift').value=chosen.shift;selection=targets[0].key;
+   sessionStorage.removeItem('champer-selected-target');render();
+  }
+ }catch(error){notice(error.message,true);}
+}
+acceptSelectedTarget();
