@@ -13,7 +13,7 @@ function operatorWorkUrl(line, machine = '', part = '') {
 }
 function updateOperatorLinks() {
  $('operator-work').href=operatorWorkUrl($('line').value);
- $('champer-work').href=operatorWorkUrl('LINE_1','AUTO CHAMPER');
+ $('champer-work').href=operatorWorkUrl('LINE_99','AUTO CHAMPER');
 }
 function addOperatorTargetLinks(items) {
  $('targetList').querySelectorAll('[data-target]').forEach(button=>{
@@ -22,7 +22,7 @@ function addOperatorTargetLinks(items) {
   const link=document.createElement('a');
   link.href=operatorWorkUrl(item.line,item.machine,item.part);
   link.className='tgbutton';
-  link.textContent=item.line==='LINE_1'&&item.machine==='AUTO CHAMPER'?'Pekerjaan / Start–End simulasi':'Buka pekerjaan operator';
+  link.textContent=item.line==='LINE_99'&&item.machine==='AUTO CHAMPER'?'Pekerjaan / Start–End simulasi':'Buka pekerjaan operator';
   button.parentElement.append(link);
  });
 }

@@ -5,7 +5,7 @@ const today = new Intl.DateTimeFormat('en-CA', {timeZone:'Asia/Jakarta', year:'n
 element('date').value = /^\d{4}-\d{2}-\d{2}$/.test(params.get('date') || '') ? params.get('date') : today;
 element('shift').value = params.get('shift') === '2' ? '2' : '1';
 element('source').value = params.get('source') === 'example' ? 'example' : 'leader';
-let preferredLine = params.has('line') ? params.get('line') : 'LINE_1';
+let preferredLine = params.has('line') ? params.get('line') : 'LINE_99';
 let preferredMachine = params.has('machine') ? params.get('machine') : 'AUTO CHAMPER';
 element('search').value = params.get('part') || '';
 let items = [], epoch = 0, controller;
@@ -18,8 +18,8 @@ function text(parent, tag, value, className) {
 }
 function examples(date, shift) {
   return [
-    ['LINE_1','AUTO CHAMPER','PART-CONTOH-A',100],
-    ['LINE_1','AUTO CHAMPER','PART-CONTOH-B',60],
+    ['LINE_99','AUTO CHAMPER','PIPE 1_BLS-E475A-0000-0305',100],
+    ['LINE_99','AUTO CHAMPER','PIPE 1_BPA-E4742-0000-0335',60],
     ['LINE_1','PRESS 45 TON','PART-CONTOH-C',200],
     ['LINE_2','TIG WELD 300','PART-CONTOH-D',120],
     ['LINE_3','ROBOT PAN 11','PART-CONTOH-E',160]
@@ -28,7 +28,7 @@ function examples(date, shift) {
 function options(id, values, label) {
   const select = element(id), selected = select.value;
   select.replaceChildren(new Option(label, ''));
-  for (const value of [...new Set(values)].sort(undefined,{numeric:true})) select.add(new Option(value.replace('LINE_','Line '), value));
+  for (const value of [...new Set(values)].sort(undefined,{numeric:true})) select.add(new Option(value === 'LINE_99' ? 'Line 99 · Uji' : value.replace('LINE_','Line '), value));
   if (values.includes(selected)) select.value = selected;
 }
 function filterMachines() {
@@ -45,13 +45,13 @@ function render() {
   if (!visible.length) text(cards,'p','Tidak ada target yang cocok. Periksa tanggal, shift, atau filter Anda.','empty');
   for (const item of visible) {
     const card = text(cards,'article','','panel job');
-    text(card,'span',item.line.replace('LINE_','Line ')+' · Shift '+item.shift,'hint');
+    text(card,'span',(item.line === 'LINE_99' ? 'Line 99 · Uji' : item.line.replace('LINE_','Line '))+' · Shift '+item.shift,'hint');
     text(card,'h3',item.machine);
     text(card,'p',item.part);
     const qty = text(card,'div',Number.isSafeInteger(item.targetQty) ? item.targetQty.toLocaleString('id-ID') : 'Belum diisi','quantity');
     text(qty,'small',' pcs · target OK');
     text(card,'p',(item.source === 'CONTOH' ? 'Contoh simulasi' : 'Target leader')+' · versi '+item.version,'hint');
-    const champer = item.machine === 'AUTO CHAMPER' && item.line === 'LINE_1';
+    const champer = item.machine === 'AUTO CHAMPER' && item.line === 'LINE_99';
     if (champer && Number.isSafeInteger(item.targetQty) && item.targetQty > 0) {
       const link = text(card,'a','Pilih · sesi Champer simulasi','action');
       link.href = '/champer-simulasi.html?from=pekerjaan';

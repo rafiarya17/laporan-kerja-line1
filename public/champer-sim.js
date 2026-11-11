@@ -1,5 +1,5 @@
 'use strict';
-const C=window.ChamperSim,$=id=>document.getElementById(id),KEY='berlindo-champer-simulation-v1',LOCK=KEY+'-lock';
+const C=window.ChamperSim,$=id=>document.getElementById(id),KEY='berlindo-champer-line99-simulation-v1',LOCK=KEY+'-lock';
 const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Jakarta',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 const labels={DRAFT:'Siap dimulai',START_FAILED:'Counter awal belum diterima',ACTIVE:'Pekerjaan aktif',END_FAILED:'Counter akhir belum diterima',END_CAPTURED:'Lengkapi hasil',REVIEW_REQUIRED:'Perlu pemeriksaan',COMPLETED:'Selesai · simulasi',CANCELLED:'Ditutup · simulasi'};
 let state,selection=null,busy=false,storageOK=true,qualityJob=null;
@@ -38,7 +38,7 @@ async function mutate(event){
  finally{busy=false;render();}
 }
 function sample(part,qty){const date=$('date').value,shift=$('shift').value;if(!date)throw Error('Pilih tanggal produksi.');const version=Math.max(0,...state.targets.filter(t=>t.date===date&&t.shift===shift).map(t=>t.version))+1;return C.targets({date,shift,targets:[{line:C.LINE,version,items:[{machine:C.MACHINE,part,targetQty:qty}]}]},date,shift);}
-$('examples').onclick=()=>{try{mutate({type:'TARGETS',source:'CONTOH',targets:sample('PART-CONTOH-A',100)});}catch(e){notice(e.message,true);}};
+$('examples').onclick=()=>{try{mutate({type:'TARGETS',source:'CONTOH',targets:sample('PIPE 1_BLS-E475A-0000-0305',100)});}catch(e){notice(e.message,true);}};
 $('target-form').onsubmit=e=>{e.preventDefault();try{mutate({type:'TARGETS',source:'CONTOH',targets:sample($('part').value.trim(),Number($('target-qty').value))});}catch(err){notice(err.message,true);}};
 for(const id of ['date','shift'])$(id).onchange=()=>{selection=null;render();};
 $('live').onclick=async()=>{

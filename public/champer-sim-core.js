@@ -1,6 +1,6 @@
 (function(root){
 'use strict';
-const MACHINE='AUTO CHAMPER', LINE='LINE_1', DATASET='CHAMPER_SIMULATION';
+const MACHINE='AUTO CHAMPER', LINE='LINE_99', DATASET='CHAMPER_SIMULATION';
 const copy=v=>JSON.parse(JSON.stringify(v));
 const integer=(v)=>Number.isSafeInteger(v)&&v>=0&&v<=999999999;
 function demand(ok,message){if(!ok)throw Error(message);}
@@ -23,7 +23,7 @@ function apply(state,event){
  let j=active(s);
  if(event.type==='TARGETS'){
   demand(!j,'Selesaikan atau batalkan sesi sebelum mengganti target.');
-  demand(Array.isArray(event.targets)&&event.targets.every(t=>t.machine===MACHINE&&t.line===LINE&&integer(t.targetQty)&&t.targetQty>0),'Target simulasi hanya untuk AUTO CHAMPER LINE 1.');
+  demand(Array.isArray(event.targets)&&event.targets.every(t=>t.machine===MACHINE&&t.line===LINE&&integer(t.targetQty)&&t.targetQty>0),'Target simulasi hanya untuk AUTO CHAMPER LINE 99 Uji.');
   s.targets=copy(event.targets);s.targetSource=event.source;
  }else if(event.type==='CREATE'){
   demand(!j,'Masih ada sesi Champer yang belum ditutup.');
