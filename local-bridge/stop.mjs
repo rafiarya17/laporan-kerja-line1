@@ -1,0 +1,2 @@
+import {dirname} from 'node:path';import {fileURLToPath} from 'node:url';import {loadConfig} from './bridge-client.mjs';
+try{const c=loadConfig(dirname(fileURLToPath(import.meta.url)));const r=await fetch('http://127.0.0.1:4349/stop',{method:'POST',headers:{authorization:'Bearer '+c.deviceToken},signal:AbortSignal.timeout(5000)});if(!r.ok)throw Error();console.log('Permintaan berhenti dikirim. Tunggu pesan berhenti di jendela penghubung.');}catch{console.log('Penghubung tidak dapat dihubungi. Tidak ada proses lain yang ditutup.');process.exitCode=1;}

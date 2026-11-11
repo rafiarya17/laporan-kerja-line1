@@ -8,7 +8,8 @@ element('source').value = params.get('source') === 'example' ? 'example' : 'lead
 let preferredLine = params.has('line') ? params.get('line') : 'LINE_1';
 let preferredMachine = params.has('machine') ? params.get('machine') : 'AUTO CHAMPER';
 element('search').value = params.get('part') || '';
-let items = [], epoch = 0, controller;
+let items = [], epoch = 0, controller, plcPilotReady = false;
+fetch('/api/champer/capabilities',{cache:'no-store'}).then(r=>r.json()).then(c=>{plcPilotReady=c.enabled===true;render();}).catch(()=>{});
 function text(parent, tag, value, className) {
   const node = document.createElement(tag);
   node.textContent = value;
@@ -35,6 +36,7 @@ function filterMachines() {
   options('machine',items.filter(item => !element('line').value || item.line === element('line').value).map(item => item.machine),'Semua mesin');
 }
 function render() {
+  document.querySelector('footer').textContent=plcPilotReady?'AUTO CHAMPER: pilih simulasi atau baca PLC (pilot). Sesi PLC tersimpan cloud; hasil pilot belum menjadi laporan produksi. Mesin lain tetap melalui form laporan.':'Start/End tersedia sebagai simulasi AUTO CHAMPER. Pilihan target dan hasil simulasi disimpan pada browser ini.';
   element('leader-link').href = '/leader?' + new URLSearchParams({date:element('date').value,shift:element('shift').value,line:element('line').value || preferredLine || ''});
   const query = element('search').value.trim().toLocaleLowerCase('id-ID');
   const visible = items.filter(item => (!element('line').value || item.line === element('line').value) && (!element('machine').value || item.machine === element('machine').value) && (item.part+' '+item.machine).toLocaleLowerCase('id-ID').includes(query));
@@ -59,6 +61,11 @@ function render() {
         try { sessionStorage.setItem('champer-selected-target',JSON.stringify(item)); }
         catch { event.preventDefault(); element('notice').textContent = 'Pilihan belum dapat disimpan. Izinkan penyimpanan browser, lalu coba lagi.'; }
       };
+      if (plcPilotReady && item.source === 'LIVE_READ_ONLY') {
+        const live = text(card,'a','Pilih · baca PLC Champer (pilot)','action');
+        live.href='/champer-plc.html';
+        live.onclick=event=>{try{sessionStorage.setItem('champer-selected-target',JSON.stringify(item));}catch{event.preventDefault();element('notice').textContent='Pilihan belum dapat disimpan pada browser.';}};
+      }
     } else {
       text(card,'p','Catat hasil melalui form laporan. Pilih mesin dan part ini di dalam form.','hint');
       const link = text(card,'a','Buka form laporan','action');
