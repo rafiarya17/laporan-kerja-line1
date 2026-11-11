@@ -9,7 +9,13 @@ let preferredLine = params.has('line') ? params.get('line') : 'LINE_99';
 let preferredMachine = params.has('machine') ? params.get('machine') : 'AUTO CHAMPER';
 element('search').value = params.get('part') || '';
 let items = [], epoch = 0, controller, plcPilotReady = false;
+let cloudJobs=null,historyMessage='Riwayat Champer belum dimuat.';
 fetch('/api/champer/capabilities',{cache:'no-store'}).then(r=>r.json()).then(c=>{plcPilotReady=c.enabled===true;render();}).catch(()=>{});
+async function loadHistory(){
+ try{const r=await andonFetch('/api/champer/state',{cache:'no-store'}),s=await r.json();if(!r.ok)throw Error(r.status===401?'Pasangkan tablet untuk melihat status dan riwayat Champer.':'Riwayat Champer belum dapat dimuat.');cloudJobs=s.jobs;historyMessage='Riwayat Champer dari cloud. Target tetap dapat dipakai untuk sesi berikutnya.';}
+ catch(e){cloudJobs=null;historyMessage=e.message;}
+ render();
+}
 function text(parent, tag, value, className) {
   const node = document.createElement(tag);
   node.textContent = value;
@@ -54,23 +60,26 @@ function render() {
     text(card,'p',(item.source === 'CONTOH' ? 'Contoh simulasi' : 'Target leader')+' · versi '+item.version,'hint');
     const champer = item.machine === 'AUTO CHAMPER' && item.line === 'LINE_99';
     if (champer && Number.isSafeInteger(item.targetQty) && item.targetQty > 0) {
-      const link = text(card,'a','Pilih · sesi Champer simulasi','action');
-      link.href = '/champer-simulasi.html?from=pekerjaan';
+      const liveTarget=item.source==='LIVE_READ_ONLY';
+      const summary=liveTarget&&cloudJobs?ChamperWork.summary(cloudJobs,item):null;
+      if(liveTarget)text(card,'p',summary?summary.text:'Status pekerjaan belum diketahui · muat riwayat atau pasangkan tablet','pill history-badge');
+      if(liveTarget&&!plcPilotReady){text(card,'p','Pembacaan PLC belum tersedia. Pekerjaan nyata tidak dialihkan ke simulasi.','hint');continue;}
+      const link = text(card,'a',liveTarget?(summary?.active?'Lanjutkan sesi Champer':summary?.started.length?'Mulai sesi baru · Champer':'Buka pekerjaan Champer'):'Coba alur simulasi','action');
+      link.href = liveTarget?'/champer-plc.html':'/champer-simulasi.html?from=pekerjaan';
+      text(card,'p',liveTarget?'Pembacaan D100 asli · Line 99 Uji':'Latihan dengan angka contoh; tidak membaca PLC.','hint');
       link.onclick = event => {
         try { sessionStorage.setItem('champer-selected-target',JSON.stringify(item)); }
         catch { event.preventDefault(); element('notice').textContent = 'Pilihan belum dapat disimpan. Izinkan penyimpanan browser, lalu coba lagi.'; }
       };
-      if (plcPilotReady && item.source === 'LIVE_READ_ONLY') {
-        const live = text(card,'a','Pilih · baca PLC Champer (Line 99 Uji)','action');
-        live.href='/champer-plc.html';
-        live.onclick=event=>{try{sessionStorage.setItem('champer-selected-target',JSON.stringify(item));}catch{event.preventDefault();element('notice').textContent='Pilihan belum dapat disimpan pada browser.';}};
-      }
     } else {
       text(card,'p','Catat hasil melalui form laporan. Pilih mesin dan part ini di dalam form.','hint');
       const link = text(card,'a','Buka form laporan','action');
       link.href = '/';
     }
   }
+  element('history-notice').textContent=historyMessage;
+  if(cloudJobs)ChamperWork.table(element('job-history'),cloudJobs,{date:element('history-date').value,shift:element('history-shift').value,status:element('history-status').value,query:element('history-search').value},(td,j)=>{const a=text(td,'a',ChamperWork.closed(j)?'Lihat target / sesi baru':'Lanjutkan sesi','action');a.href=ChamperWork.closed(j)?'/pekerjaan.html?'+new URLSearchParams({date:j.target.date,shift:j.target.shift,line:j.target.line,machine:j.target.machine,part:j.target.part}):'/champer-plc.html';});
+  else element('job-history').replaceChildren();
 }
 async function load() {
   const current = ++epoch;
@@ -109,9 +118,13 @@ async function load() {
     if (current === epoch) element('notice').textContent = error.message || 'Target gagal dimuat.';
   } finally { if (current === epoch) element('reload').disabled = false; }
 }
-element('reload').onclick = load;
+element('reload').onclick = () => {load();loadHistory();};
 for (const id of ['date','shift','source']) element(id).onchange = load;
 element('line').onchange = () => { preferredLine=element('line').value; preferredMachine=''; filterMachines(); render(); };
 element('machine').onchange = () => { preferredMachine=element('machine').value; render(); };
 element('search').oninput = render;
+element('history-reload').onclick=loadHistory;
+for(const id of ['history-date','history-shift','history-status','history-search'])element(id).oninput=render;
+element('history-date').value=element('date').value;element('history-shift').value=element('shift').value;
 load();
+loadHistory();

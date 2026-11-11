@@ -13,13 +13,14 @@ export function prepareReport(s:State,input:ReportInput):Submission {
  if(j.state!=='COMPLETED_PILOT'||!j.quality||j.target.line!=='LINE_99'||j.delta===null)fail('REPORT_NOT_READY');
  const a=s.commands.find(c=>c.id===j.start)?.evidence?.result,b=s.commands.find(c=>c.id===j.end)?.evidence?.result;
  if(!a||!b)fail('REPORT_EVIDENCE_REQUIRED');
+ if(!j.workTime)fail('WORK_TIME_REQUIRED');
  const start=local(a.observed_at),end=local(b.observed_at),q=j.quality;
  // Retain receiver's shift/date semantics; do not silently assign observations to another day.
  const productionDay=(v:string)=>j.target.shift==='2'&&Number(v.slice(11,13))<12?new Date(Date.parse(v.slice(0,10)+'T00:00:00Z')-86400000).toISOString().slice(0,10):v.slice(0,10);
  if(productionDay(start)!==j.target.date||productionDay(end)!==j.target.date)fail('REPORT_DATE_REQUIRES_REVIEW');
  return {id:'LKH99-'+j.id,line:'LINE_99',form:{...initialForm,tanggal:j.target.date,shift:j.target.shift,operator:[...j.operators],mesin:j.target.machine,part:j.target.part,
- jamMulaiProses:start.slice(11,16),jamSelesaiProses:end.slice(11,16),qtyOk:q.ok,qtyRepair:q.repair,qtyReject:q.reject,
- lembur:input.lembur,kendala:q.issue,kendala4M:q.classification,permasalahan:q.problem,tindakan:q.action,pic:q.pic,
+ jamMulaiProses:j.workTime.start.slice(11,16),jamSelesaiProses:j.workTime.end.slice(11,16),qtyOk:q.ok,qtyRepair:q.repair,qtyReject:q.reject,
+ lembur:j.workTime.overtime,kendala:q.issue,kendala4M:q.classification,permasalahan:q.problem,tindakan:q.action,pic:q.pic,
  jamMulaiKendala:q.issue==='Ada'?input.jamMulaiKendala:'',jamSelesaiKendala:q.issue==='Ada'?input.jamSelesaiKendala:''}};
 }
 export function reserveReport(s:State,input:ReportInput,payload:Submission){

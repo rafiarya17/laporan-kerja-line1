@@ -1,5 +1,6 @@
 import {randomUUID, createHash} from 'node:crypto';
 import type {PilotReport} from './champer-report';
+import {validateWorkTime, WorkTime} from './champer-work-time';
 
 // One machine pilot. No PLC write vocabulary exists in this protocol.
 export const MACHINE = 'AUTO_CHAMPER';
@@ -12,7 +13,7 @@ export type Target = {date:string;shift:string;line:string;machine:string;part:s
 export type Evidence = {command_id:string;request_key:string;purpose:string;status:string;created_at:string;expires_at:string;after_sequence:string;collector_id:string;machine_id:string;tag_id:string;result:null|{command_id:string;event_id:string;sequence:string;observed_at:string;counter_raw:string;read_status:string;quality:string;collector_id:string;machine_id:string;tag_id:string;event_type:string;reset_marker:string;freshness:string;production_usable:boolean}};
 export type Command = {id:string;jobId:string;purpose:'START'|'END';createdAt:number;expiresAt:number;status:'PENDING'|'RECORDED'|'TIMED_OUT'|'FAILED'|'CANCELLED';lease?:{owner:string;token:string;until:number};evidence?:Evidence;reason?:string;late?:{at:number;status:string}};
 export type Quality = {ok:string;repair:string;reject:string;issue:string;classification:string;problem:string;action:string;pic:string};
-export type Job = {id:string;revision:number;target:Target;operators:string[];state:string;createdAt:number;start?:string;end?:string;delta:string|null;quality?:Quality;closedReason?:string;production_usable:false;dataset:'PLC_PILOT';audit:{at:number;action:string}[]};
+export type Job = {id:string;revision:number;target:Target;operators:string[];state:string;createdAt:number;start?:string;end?:string;delta:string|null;quality?:Quality;workTime?:WorkTime;closedReason?:string;production_usable:false;dataset:'PLC_PILOT';audit:{at:number;action:string;workTime?:WorkTime}[]};
 export type State = {schema:1;revision:number;jobs:(Job & {report?:PilotReport})[];commands:Command[];requests:Record<string,{hash:string;jobId:string}>;device?:{at:number;ready:boolean;sourceId:string}};
 export const initialState = ():State => ({schema:1,revision:0,jobs:[],commands:[],requests:{}});
 export const uuid = (s:unknown):s is string => typeof s==='string'&&/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(s);
@@ -33,14 +34,14 @@ export function validateTarget(t:Target){
 export function operatorAction(s:State,input:Record<string,unknown>,now:number):Job {
  expire(s,now);
  const action=input.action;
- if(!['prepare','start','end','quality','complete','close'].includes(String(action)))fail('INVALID_ACTION',400);
- exactKeys(input,['action','requestId','jobId','revision','target','operators','quality','reason']);
+ if(!['prepare','start','end','timing','quality','complete','close'].includes(String(action)))fail('INVALID_ACTION',400);
+ exactKeys(input,['action','requestId','jobId','revision','target','operators','quality','reason','workTime']);
  if(!uuid(input.requestId))fail('INVALID_REQUEST_ID',400);
  const fingerprint=createHash('sha256').update(JSON.stringify(input)).digest('hex');
  const previous=s.requests[input.requestId];
  if(previous){if(previous.hash!==fingerprint)fail('REQUEST_ID_CONFLICT');return job(s,previous.jobId);}
  // Fail closed at pilot capacity; never evict dedupe records or active work.
- if((Object.keys(s.requests).length>=10000&&!['quality','complete','close'].includes(String(action)))||(action==='prepare'&&s.jobs.length>=500)||(['start','end'].includes(String(action))&&s.commands.length>=2000))fail('PILOT_ARCHIVE_REQUIRED',503);
+ if((Object.keys(s.requests).length>=10000&&!['timing','quality','complete','close'].includes(String(action)))||(action==='prepare'&&s.jobs.length>=500)||(['start','end'].includes(String(action))&&s.commands.length>=2000))fail('PILOT_ARCHIVE_REQUIRED',503);
  let j:Job;
  if(action==='prepare'){
    const target=input.target as Target;validateTarget(target);
@@ -51,7 +52,7 @@ export function operatorAction(s:State,input:Record<string,unknown>,now:number):
  }else{
    j=job(s,input.jobId);
    if(input.revision!==j.revision)fail('REVISION_CONFLICT');
-   if(terminal(j))fail('JOB_CLOSED');
+   if(terminal(j)&&!(action==='timing'&&j.state==='COMPLETED_PILOT'&&!s.jobs.find(x=>x.id===j.id)?.report))fail('JOB_CLOSED');
    if(action==='start'||action==='end'){
      const purpose=action==='start'?'START':'END';
      if(!(purpose==='START'?['DRAFT','START_FAILED']:['ACTIVE','END_FAILED']).includes(j.state))fail('INVALID_JOB_STATE');
@@ -59,6 +60,11 @@ export function operatorAction(s:State,input:Record<string,unknown>,now:number):
      if(s.commands.some(c=>c.status==='PENDING'))fail('READ_ALREADY_PENDING');
      const c:Command={id:randomUUID(),jobId:j.id,purpose,createdAt:now,expiresAt:now+90000,status:'PENDING'};
      s.commands.push(c);j[purpose==='START'?'start':'end']=c.id;j.state=purpose+'_PENDING';
+   }else if(action==='timing'){
+     if(!['END_CAPTURED','REVIEW_REQUIRED','COMPLETED_PILOT'].includes(j.state))fail('END_REQUIRED');
+     const a=s.commands.find(c=>c.id===j.start)?.evidence?.result,b=s.commands.find(c=>c.id===j.end)?.evidence?.result;
+     if(!a||!b)fail('REPORT_EVIDENCE_REQUIRED');
+     try{j.workTime=validateWorkTime(input.workTime,{date:j.target.date,shift:j.target.shift,startObserved:a.observed_at,endObserved:b.observed_at},now);}catch(e){fail(e instanceof Error?e.message:'INVALID_WORK_TIME',400);}
    }else if(action==='quality'){
      if(!['END_CAPTURED','REVIEW_REQUIRED'].includes(j.state))fail('END_REQUIRED');
      const q=input.quality as Quality;
@@ -72,6 +78,7 @@ export function operatorAction(s:State,input:Record<string,unknown>,now:number):
      j.quality=v;
    }else if(action==='complete'){
      if(j.state!=='END_CAPTURED'||!j.quality)fail('END_AND_QUALITY_REQUIRED');
+     if(!j.workTime)fail('WORK_TIME_REQUIRED');
      j.state='COMPLETED_PILOT';
    }else if(action==='close'){
      j.closedReason=text(input.reason,500);j.state=j.start?'CLOSED_REVIEW':'CANCELLED';
@@ -79,7 +86,7 @@ export function operatorAction(s:State,input:Record<string,unknown>,now:number):
    }
    j.revision++;
  }
- j.audit.push({at:now,action:String(action)});s.requests[input.requestId]={hash:fingerprint,jobId:j.id};return j;
+ j.audit.push({at:now,action:String(action),...(action==='timing'?{workTime:structuredClone(j.workTime)}:{})});s.requests[input.requestId]={hash:fingerprint,jobId:j.id};return j;
 }
 export function poll(s:State,owner:string,sourceId:string,ready:boolean,now:number){
  if(!uuid(owner))fail('INVALID_AGENT_INSTANCE',400);
@@ -124,5 +131,5 @@ export function view(s:State,now:number){
  expire(s,now);
  const boundary=(id:string|undefined)=>{const c=s.commands.find(c=>c.id===id);return c?.status==='RECORDED'?c.evidence?.result||null:null;};
  const publicJobs=s.jobs.map(j=>({...j,startEvidence:boundary(j.start),endEvidence:boundary(j.end)}));
- return {dataset:'PLC_PILOT',production_usable:false,machine:MACHINE,deviceReady:!!s.device?.ready&&now-s.device.at<=45000,deviceLastSeen:s.device?.at||null,jobs:publicJobs.slice(-100).reverse()};
+ return {dataset:'PLC_PILOT',production_usable:false,machine:MACHINE,deviceReady:!!s.device?.ready&&now-s.device.at<=45000,deviceLastSeen:s.device?.at||null,jobs:publicJobs.reverse()};
 }
