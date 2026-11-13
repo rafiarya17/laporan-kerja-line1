@@ -1,6 +1,6 @@
 # CURRENT STATE REPORT — Berlindo Vercel / SQL intake
 
-Audit and pilot release: 13 November 2026. This report covers the Vercel repository, deployment configuration and the tested manual-LKH integration. It is not a claim that every file and installed trigger of the separate live LINE 3 Apps Script project was audited. No live Apps Script source was edited.
+Audit, pilot and subsequently authorized all-line rollout: 13 November 2026. This report covers the Vercel repository, deployment configuration and the tested manual-LKH integration. It is not a claim that every file and installed trigger of the separate live LINE 3 Apps Script project was audited. No live Apps Script source was edited.
 
 ## Baseline and ownership
 
@@ -8,7 +8,7 @@ Audit and pilot release: 13 November 2026. This report covers the Vercel reposit
 - Vercel project: `berlindo-lkh`, region Singapore (`sin1`), Node 24.
 - Runtime dependencies observed: Next.js 16.4.3, React 19.3.0, Neon serverless driver 1.2.0.
 - Audited live baseline: `70e2daf6ca7ea3baf0a00059ff5527941aef6390`, branch `feat/portal-native-20261113`.
-- SQL release code: `981fe47f86e6310c49dd3c5a526f40137ccf7288`, branch `sql-production-intake`. Production is deployed from this exact commit, with `LKH_SQL_INTAKE=pilot`.
+- SQL release code: `981fe47f86e6310c49dd3c5a526f40137ccf7288`, branch `sql-production-intake`. Production deployment `dpl_9z8a3a2DxGifE97PKEW22DvvuXdo` uses documentation descendant `695bb4adfe136f189b0885cf42c5029f15e07c97`, with `LKH_SQL_INTAKE=1` after explicit authorization for all lines.
 - `main` is not the audited production baseline. Do not deploy `main` or an older portal branch assuming it contains the current release. Desktop work must merge the SQL release branch before its next production deployment, then recheck the live alias and preserve the environment gates.
 
 ## Current application map
@@ -16,14 +16,14 @@ Audit and pilot release: 13 November 2026. This report covers the Vercel reposit
 | Surface | Endpoint / files | Current source of data |
 |---|---|---|
 | Portal and navigation | `/portal.html`, `public/portal-shell.js`, `public/portal-shell.css` | Native document navigation and protected session drafts; preserved from the desktop baseline |
-| Operator manual LKH | `/`, `app/page.tsx`, `/api/submissions` | Line 99 commits to SQL first; all other lines still call the existing signed Apps Script receiver |
+| Operator manual LKH | `/`, `app/page.tsx`, `/api/submissions` | Line 1–8 and Line 99 commit to SQL first, followed by asynchronous delivery to the existing receiver |
 | Part, machine, operator master | `/api/master`, `lib/sql-intake.ts` | Existing signed live master, cached in SQL; production response preserves `source: live` required by portal readiness |
 | Leader targets / review / revision | `/leader`, `/leader.html`, `/api/leader` | Existing Apps Script workspace; not migrated to SQL |
 | Existing Telegram Line 99 gateway | `/api/line99` | Existing Telegram and Apps Script integration; unchanged |
 | Champer / PLC / live monitor | `/pekerjaan.html`, `/champer-plc.html`, `/monitor-live.html`, `/api/champer/[...path]` | Existing PLC/Upstash bridge maintained by the desktop session; unchanged |
 | Durable SQL intake | `lkh_reports`, `lkh_master_cache`, `lkh_delivery_worker` | Separate Neon production project; not the PLC store |
 | Spreadsheet forwarding | `lib/sql-delivery.ts`, `/api/internal/lkh-delivery` | Original report ID and payload sent to existing Apps Script receiver, which owns downstream sheet processing |
-| Recovery schedule | Neon Function `lkhretry` | Authenticated calls to the forwarding endpoint; 15-minute fallback during the current pilot |
+| Recovery schedule | Neon Function `lkhretry` | Authenticated calls to the forwarding endpoint every minute, plus immediate attempts after successful submissions |
 
 ## Verified behavior and limits
 
@@ -34,7 +34,9 @@ Audit and pilot release: 13 November 2026. This report covers the Vercel reposit
 5. Google Forms remain on their existing sheet path. There is no historical SQL backfill or automatic merger of GForm and SQL history in this release.
 6. SQL master caching is bounded, not a new master-management system. A master removal between SQL validation and downstream validation can require manual review.
 7. The current no-login leader endpoint uses origin checks as CSRF protection, not user identity. This existing choice was preserved; it should not be represented as authenticated leader authorization.
-8. Current worker recovery cadence is appropriate for the limited pilot. Broad deployment needs a faster cadence and free-plan compute budgeting. Increasing polling consumes compute even when there are no reports.
+8. Worker recovery now runs every minute. This does not guarantee one-minute TF publication. Polling consumes compute even with no reports and prevents idle suspension; Free-plan quota monitoring and idle-aware scheduling remain operational follow-up work.
+9. Live PPC controls retain automatic publication for new production reports and revisions. Recent reports submitted on 13 November from Lines 1, 2 and 5 show system approval and TERBIT without a human approver. Line 99 remains the separate manual-approval test workflow. Invalid submissions and conflicting IDs are still held rather than silently published.
+10. Production revisions remain available through each line's source response sheet and SUBMIT REVISI LKH. Line 1's live revision form was verified. Its legacy help text still mentions approval even though active PPC policy skips manual approval. Web-card revisions remain Line 99 only; this rollout does not broaden those editing permissions.
 
 ## Verification evidence
 
@@ -48,9 +50,7 @@ Audit and pilot release: 13 November 2026. This report covers the Vercel reposit
 
 ## Rollout status
 
-The request to enable SQL intake for all production lines was rejected by automatic approval review because authorization was interpreted as covering the Line 99 pilot only. All-line activation has **not** happened. Keep the gate at `pilot` until explicit authorization is obtained. Do not route around that decision through a different environment API or code default.
-
-Once authorized: recheck the production alias and desktop changes; merge any new baseline; configure the production retry cadence; deploy the reviewed code with `LKH_SQL_INTAKE=1`; verify master readiness and delivery health. Changing the Vercel environment alone does not change an already running deployment.
+The initial all-line request was blocked pending explicit authorization. The user subsequently authorized all production lines with no manual leader approval and retained revision capability. The production alias was rechecked, the SQL flag changed to `1`, retry cadence increased to one minute, and the reviewed commit redeployed successfully. Existing production automatic publication and source-sheet revision routes are preserved. Runtime source code did not change during activation, so the existing 144-test result remains applicable; this is not a claim of a new live burst test on all eight lines.
 
 For rollback, disable new SQL intake in the same compatible code while retaining database and worker access to drain accepted reports. Do not delete SQL receipts or shut off the worker with pending jobs.
 

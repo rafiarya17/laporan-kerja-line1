@@ -1,8 +1,8 @@
 # SQL intake for the existing LKH form
 
-Status, 13 November 2026: deployed to the production URL with SQL intake enabled for **Line 99 only** (`LKH_SQL_INTAKE=pilot`). Other lines retain the existing receiver path. Based on the latest audited native portal commit `70e2daf6ca7ea3baf0a00059ff5527941aef6390`; release code commit `981fe47f86e6310c49dd3c5a526f40137ccf7288`.
+Status, 13 November 2026, after explicit all-line authorization: **SQL intake is enabled for Line 1–8 and Line 99** (`LKH_SQL_INTAKE=1`). Based on the audited native portal commit `70e2daf6ca7ea3baf0a00059ff5527941aef6390`; release code commit `981fe47f86e6310c49dd3c5a526f40137ccf7288`, deployed with documentation commit `695bb4adfe136f189b0885cf42c5029f15e07c97`.
 
-Production deployment: `dpl_Ew86F1CNiFnmBuCsyoaSmBxfs7oG`, https://berlindo-lkh.vercel.app/. Preview: `dpl_CYajYhHZsNeKAsS7iGCaAqQ55dEW`, isolated trial database. Source and review: https://github.com/rafiarya17/laporan-kerja-line1/pull/3.
+Production deployment: `dpl_9z8a3a2DxGifE97PKEW22DvvuXdo` (READY and aliased), https://berlindo-lkh.vercel.app/. Previous pilot deployment: `dpl_Ew86F1CNiFnmBuCsyoaSmBxfs7oG`. Preview: `dpl_CYajYhHZsNeKAsS7iGCaAqQ55dEW`, isolated trial database. Source and review: https://github.com/rafiarya17/laporan-kerja-line1/pull/3.
 
 The existing `/api/submissions` route gains a gated SQL intake path. `SQL_SAVED` confirms a committed PostgreSQL report. That same row is the durable delivery job. It does not confirm leader approval or TF Slip publication. The original payload and ID are forwarded unchanged to the existing signed Apps Script receiver. Existing production leader and TF Slip behavior continues after the receiver accepts the report.
 
@@ -12,7 +12,7 @@ The existing `/api/submissions` route gains a gated SQL intake path. `SQL_SAVED`
 - Preview requires an additional `LKH_SQL_PREVIEW=1` and an isolated database. It uses dummy Line 99 master data. The default worker cannot forward to production from Preview.
 - `LKH_DELIVERY_SECRET` protects `/api/internal/lkh-delivery`. It must never be exposed to the browser or committed.
 - Do not enable production intake until the scheduled retry function is deployed, authenticated, and observed successfully invoking the worker. Immediate `after()` delivery alone is not a durable scheduler.
-- Production and branch-scoped Preview environments have now been configured with separate database connections and worker secrets. The later attempt to change production from `pilot` to `1` was rejected by automatic approval review because all-line activation required more explicit authorization. Do not bypass this rejection. Production remains `pilot` until that authorization is supplied.
+- Production and branch-scoped Preview environments use separate database connections and worker secrets. The first all-line activation attempt was rejected pending explicit authorization. The user subsequently authorized Line 1–8 SQL intake and requested automatic publication without manual approval, while retaining revisions. The authorized flag update and production deployment then succeeded.
 
 ## Persistence and retries
 
@@ -24,7 +24,7 @@ The Apps Script worker is serialized through a short SQL lease. Operator inserti
 
 `functions/lkhretry/index.mjs` is deployed as Neon Function `lkhretry`, deployment 1. It accepts authenticated Neon schedule invocations and calls the protected Vercel worker. Trigger `trigger-fbf6659e-10fa-4170-a0cb-5ebcb7b872ac` successfully invoked the worker with HTTP 200 at 08:37 UTC during a one-minute cadence test. Public requests and forged trigger headers returned HTTP 401.
 
-The retained **pilot** schedule is `*/15 * * * *` UTC to limit idle compute use on the Free project. Immediate after-response delivery still runs for each accepted SQL submission. Recovery can therefore wait up to the scheduler interval, plus backoff and backlog. This pilot cadence is not a throughput promise for 27 live submissions: a serialized Apps Script backlog could require multiple runs. Before all-line activation, configure and validate a faster recovery cadence and its compute budget. Continuous one-minute SQL polling prevents idle suspension and consumes the Free allowance; an event-driven drain is a future optimization. No paid plan was activated.
+The active schedule is now `* * * * *` UTC (every minute). Immediate after-response delivery still runs for each accepted SQL submission. Recovery waits for the next eligible worker run, with backoff and any backlog; this is not a one-minute TF Slip publication SLA. Continuous one-minute SQL polling prevents idle suspension and consumes the Free allowance; quota monitoring and event-driven or idle-aware draining remain follow-up work. No paid plan was activated. The previous pilot used a 15-minute fallback.
 
 Each SQL HTTP request has a fresh 12-second timeout. An uncertain commit never causes an automatic new ID. A crashed worker lease expires, and the unchanged ID is retried at the receiver.
 
@@ -36,6 +36,8 @@ The form refreshes its SQL master cache from the signed live master endpoint whe
 
 - Existing Google Forms still use their existing spreadsheet path.
 - Production leader targets, revisions, approval and TF Slip remain on the existing downstream workflow.
+- Production Line 1–8 auto-publication was verified from live PPC controls and reports submitted on 13 November: system actor `SISTEM — CEK LEADER DITUNDA`, result `TERBIT`. Valid reports do not need manual leader approval. Existing validation, ID and version guards remain active. Line 99 retains its separate test approval workflow.
+- Revisions for Line 1–8 remain source-sheet corrections followed by `SUBMIT REVISI LKH`. The web leader workspace still limits editing to Line 99; do not claim this release enables production revisions from the web cards. Original SQL intake payloads are retained; revised authoritative values still live in the old workflow.
 - Preview SQL intake data is separate from the earlier SQL trial leader tables. It does not automatically appear in that earlier trial dashboard.
 - Existing spreadsheet history is not backfilled into SQL.
 - No live Apps Script code, PLC logic or Upstash data is changed by this patch.
