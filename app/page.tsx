@@ -279,7 +279,7 @@ export default function LaporanKerjaForm() {
         </div>
         {lineSelected === "LINE_99" && <div className="rounded-2xl border border-amber-300 bg-amber-50 p-5 mb-6 text-amber-950" role="note">
           <p className="font-bold">{connection.source === "trial" ? "Line 99 — Uji penyimpanan laporan" : "Line 99 — Pengujian alur lengkap"}</p>
-          <p className="text-sm mt-2">{connection.source === "trial" ? "Gunakan mesin dummy dan part BODY_DUMMY-*. Setelah dikirim, laporan tersimpan di database trial dan memiliki bukti penerimaan. Integrasi verifikasi leader dan TF Slip merupakan tahap berikutnya." : "Gunakan mesin dummy dan part BODY_DUMMY-*. Laporan diteruskan ke dashboard leader untuk diperiksa, direvisi, atau disetujui. Setelah disetujui, hasil masuk TF Slip yang sama dengan penanda IS_TEST."}</p>
+          <p className="text-sm mt-2">{connection.source === "trial" ? "Gunakan mesin dummy dan part BODY_DUMMY-*. Setelah dikirim, laporan tersimpan di database trial dan memiliki bukti penerimaan. Leader dapat memeriksa, merevisi, dan menyetujui laporan melalui halaman verifikasi trial. Penerusan TF Slip masih dalam pengembangan." : "Gunakan mesin dummy dan part BODY_DUMMY-*. Laporan diteruskan ke dashboard leader untuk diperiksa, direvisi, atau disetujui. Setelah disetujui, hasil masuk TF Slip yang sama dengan penanda IS_TEST."}</p>
           <p className="text-sm mt-2">Satu laporan boleh memilih operator dan helper. Untuk dua laporan terpisah pada part–mesin yang sama, kirim masing-masing sekali.</p>
         </div>}
         <form onSubmit={handleSubmit} className="space-y-6">
