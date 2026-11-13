@@ -21,6 +21,12 @@ export function receiverReady() {
   const prefix = mode === "production" ? "LKH_PRODUCTION" : "LKH_TEST";
   return Boolean(process.env[prefix + "_URL"] && receiverSecret(mode));
 }
+/** ASCII transport avoids Apps Script POST decoding differences for non-ASCII names/parts.
+ * JSON.parse restores the original UTF-16 text, including surrogate pairs.
+ */
+export function receiverWireBody(value: unknown): string {
+  return JSON.stringify(value).replace(/[\u007f-\uffff]/g, char => "\\u" + char.charCodeAt(0).toString(16).padStart(4, "0"));
+}
 export async function callReceiver(action: string, payload: unknown, timeoutMs = 22000) {
   const mode = receiverMode();
   const prefix = mode === "production" ? "LKH_PRODUCTION" : "LKH_TEST";
@@ -28,10 +34,10 @@ export async function callReceiver(action: string, payload: unknown, timeoutMs =
   if (!endpoint || !secret) throw new Error("RECEIVER_NOT_CONFIGURED");
   const url = new URL(endpoint);
   if (url.protocol !== "https:" || url.hostname !== "script.google.com" || !/^\/macros\/s\/[^/]+\/exec$/.test(url.pathname)) throw new Error("INVALID_RECEIVER_URL");
-  const body = JSON.stringify({ action, mode, timestamp: Date.now(), payload });
+  const body = receiverWireBody({ action, mode, timestamp: Date.now(), payload });
   const signature = createHmac("sha256", secret).update(body).digest("hex");
   let response: Response;
-  try { response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ body, signature }), signal: AbortSignal.timeout(timeoutMs), cache: "no-store", redirect: "follow" }); }
+  try { response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json; charset=utf-8" }, body: JSON.stringify({ body, signature }), signal: AbortSignal.timeout(timeoutMs), cache: "no-store", redirect: "follow" }); }
   catch (error) { throw new ReceiverError(error instanceof Error && ['TimeoutError','AbortError'].includes(error.name) ? 'RECEIVER_TIMEOUT' : 'RECEIVER_NETWORK_ERROR'); }
   if (!response.ok) throw new ReceiverError("RECEIVER_UNAVAILABLE");
   let result;
