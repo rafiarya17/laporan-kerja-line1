@@ -36,7 +36,12 @@ export async function callReceiver(action: string, payload: unknown, timeoutMs =
   if (!response.ok) throw new ReceiverError("RECEIVER_UNAVAILABLE");
   let result;
   try { result = await response.json(); } catch { throw new ReceiverError('RECEIVER_INVALID_RESPONSE'); }
-  if (!result || result.ok !== true) throw new ReceiverError(SAFE_CODES.has(result?.error) ? result.error : 'RECEIVER_REJECTED');
+  if (!result || result.ok !== true) {
+    // Private server diagnostics only: never include payloads, signatures or configuration.
+    if (action === 'leader') console.warn('LEADER_RECEIVER_REJECTED', String(result?.error || 'INVALID_RESPONSE').slice(0, 240));
+    throw new ReceiverError(SAFE_CODES.has(result?.error) ? result.error : 'RECEIVER_REJECTED');
+  }
   if (result.mode !== mode) throw new ReceiverError('RECEIVER_MODE_MISMATCH');
   return result;
 }
+

@@ -22,5 +22,5 @@ export async function POST(r:Request){
  const result=await callReceiver('leader',body,65000);
  if(typeof result.workspace?.ok!=='boolean')return reply({ok:false,error:'LEADER_UNCONFIRMED'},503);
  return reply(result.workspace,result.workspace.ok?200:409);
- }catch{return reply({ok:false,error:'LEADER_UNCONFIRMED_RETRY_SAME_ID'},503);}
+ }catch(error){console.warn('LEADER_GATEWAY_ERROR',error instanceof Error?error.message:'UNKNOWN');return reply({ok:false,error:'LEADER_UNCONFIRMED_RETRY_SAME_ID'},503);}
 }
