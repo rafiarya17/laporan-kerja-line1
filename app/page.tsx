@@ -271,15 +271,15 @@ export default function LaporanKerjaForm() {
         <div className="bg-white border border-blue-200 rounded-2xl p-5 mb-6 text-slate-800 space-y-3" role="status">
           <p className="font-bold">{connection.mode === "production" ? "Laporan operasional" : "Versi pengujian • tidak masuk TF Slip produksi"}</p>
           <p className="text-sm">{connection.ready ? "Master terhubung. Pengiriman menunggu konfirmasi penyimpanan." : connection.source === "loading" ? "Memeriksa koneksi penerima…" : "Penerima belum siap. Kamu bisa mencoba isian; pengiriman dinonaktifkan."}</p>
-          {connection.source !== "live" && <p className="text-sm text-amber-800">Dropdown menggunakan salinan master. Sinkronisasi langsung tersedia setelah penerima dihubungkan.</p>}
+          {connection.source !== "live" && connection.source !== "trial" && <p className="text-sm text-amber-800">Dropdown menggunakan salinan master. Sinkronisasi langsung tersedia setelah penerima dihubungkan.</p>}
           {!storageAvailable && <p className="text-sm text-red-700">Penyimpanan browser tidak tersedia. Aktifkan sebelum mengirim laporan.</p>}
           {draftAvailable && !pending && <button type="button" onClick={restoreDraft} className="font-bold text-blue-800 underline">Pulihkan draft sebelumnya</button>}
           {pending && <p className="text-sm text-amber-900">Menunggu konfirmasi: <strong>{pending.id}</strong>. Isian dikunci agar kirim ulang memakai laporan yang sama. Gunakan tombol Coba Kirim Ulang di bawah.</p>}
           {receipt && <p className="text-sm break-all">{pending && pending.id !== receipt.id ? "Bukti laporan sebelumnya (bukan laporan yang sedang menunggu): " : "Bukti penerimaan terakhir: "}<strong>{receipt.id}</strong> — {receipt.state === "TEST_SAVED" ? "DATA UJI TERSIMPAN" : receipt.id.startsWith("LKH99-") ? "UJI TERSIMPAN / ANTREAN VERIFIKASI LEADER, BELUM TERBIT TF SLIP" : "TERSIMPAN / MASUK ANTREAN, BELUM KONFIRMASI TF SLIP"}</p>}
         </div>
         {lineSelected === "LINE_99" && <div className="rounded-2xl border border-amber-300 bg-amber-50 p-5 mb-6 text-amber-950" role="note">
-          <p className="font-bold">Line 99 — Pengujian alur lengkap</p>
-          <p className="text-sm mt-2">Gunakan mesin dummy dan part BODY_DUMMY-*. Laporan diteruskan ke dashboard leader untuk diperiksa, direvisi, atau disetujui. Setelah disetujui, hasil masuk TF Slip yang sama dengan penanda IS_TEST.</p>
+          <p className="font-bold">{connection.source === "trial" ? "Line 99 — Uji penyimpanan laporan" : "Line 99 — Pengujian alur lengkap"}</p>
+          <p className="text-sm mt-2">{connection.source === "trial" ? "Gunakan mesin dummy dan part BODY_DUMMY-*. Setelah dikirim, laporan tersimpan di database trial dan memiliki bukti penerimaan. Integrasi verifikasi leader dan TF Slip merupakan tahap berikutnya." : "Gunakan mesin dummy dan part BODY_DUMMY-*. Laporan diteruskan ke dashboard leader untuk diperiksa, direvisi, atau disetujui. Setelah disetujui, hasil masuk TF Slip yang sama dengan penanda IS_TEST."}</p>
           <p className="text-sm mt-2">Satu laporan boleh memilih operator dan helper. Untuk dua laporan terpisah pada part–mesin yang sama, kirim masing-masing sekali.</p>
         </div>}
         <form onSubmit={handleSubmit} className="space-y-6">
