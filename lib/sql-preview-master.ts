@@ -5,6 +5,3 @@ export const trialMaster: Master = {
     mesin_part_mapping: {'PRESS DUMMY': {options: ['BODY_DUMMY-PN99001', 'BODY_DUMMY-PN99002']}},
   },
 };
-export function neonTrialEnabled() {
-  return process.env.VERCEL_ENV === 'preview' && Boolean(process.env.DATABASE_URL);
-}

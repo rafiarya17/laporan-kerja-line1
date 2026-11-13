@@ -1,7 +1,7 @@
 import { neon } from '@neondatabase/serverless';
 import { validateSubmission, type Master, type Submission, type Receipt } from './lkh';
 import { callReceiver } from './receiver';
-import { trialMaster } from './neon-trial';
+import { trialMaster } from './sql-preview-master';
 
 export function sqlIntakeEnabled() {
   return process.env.LKH_SQL_INTAKE === '1' && Boolean(process.env.DATABASE_URL) &&

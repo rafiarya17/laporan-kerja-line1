@@ -52,7 +52,7 @@ export default function LaporanKerjaForm() {
     fetch("/api/master", {cache: "no-store"}).then(r => r.json()).then(result => {
       if (!result.mapping || !Object.keys(result.mapping).length) throw Error();
       setMapping(result.mapping);
-      if (["trial", "sql-preview"].includes(result.source)) setLineSelected(current => Object.hasOwn(result.mapping, current) ? current : "LINE_99");
+      if (result.source === "sql-preview") setLineSelected(current => Object.hasOwn(result.mapping, current) ? current : "LINE_99");
       setConnection({ready: result.ready === true, mode: result.mode, source: result.source});
     }).catch(() => setConnection({ready: false, mode: "test", source: "offline"}));
     try {
@@ -232,6 +232,7 @@ export default function LaporanKerjaForm() {
           <p className="text-blue-100 mt-2 font-medium tracking-wide">Production System — Berlindo</p>
         </div>
 
+        <a href="/portal.html" className="inline-block text-white underline mb-4">← Portal Digital Andon</a>
         {/* STEP INDICATOR */}
         <div className="flex items-center justify-center gap-2 mb-6">
           {[
@@ -271,15 +272,15 @@ export default function LaporanKerjaForm() {
         <div className="bg-white border border-blue-200 rounded-2xl p-5 mb-6 text-slate-800 space-y-3" role="status">
           <p className="font-bold">{connection.mode === "production" ? "Laporan operasional" : "Versi pengujian • tidak masuk TF Slip produksi"}</p>
           <p className="text-sm">{connection.ready ? "Master terhubung. Pengiriman menunggu konfirmasi penyimpanan." : connection.source === "loading" ? "Memeriksa koneksi penerima…" : "Penerima belum siap. Kamu bisa mencoba isian; pengiriman dinonaktifkan."}</p>
-          {!["live", "trial", "sql-master", "sql-preview"].includes(connection.source) && <p className="text-sm text-amber-800">Dropdown menggunakan salinan master. Sinkronisasi langsung tersedia setelah penerima dihubungkan.</p>}
+          {!["live", "sql-master", "sql-preview"].includes(connection.source) && <p className="text-sm text-amber-800">Dropdown menggunakan salinan master. Sinkronisasi langsung tersedia setelah penerima dihubungkan.</p>}
           {!storageAvailable && <p className="text-sm text-red-700">Penyimpanan browser tidak tersedia. Aktifkan sebelum mengirim laporan.</p>}
           {draftAvailable && !pending && <button type="button" onClick={restoreDraft} className="font-bold text-blue-800 underline">Pulihkan draft sebelumnya</button>}
           {pending && <p className="text-sm text-amber-900">Menunggu konfirmasi: <strong>{pending.id}</strong>. Isian dikunci agar kirim ulang memakai laporan yang sama. Gunakan tombol Coba Kirim Ulang di bawah.</p>}
           {receipt && <p className="text-sm break-all">{pending && pending.id !== receipt.id ? "Bukti laporan sebelumnya (bukan laporan yang sedang menunggu): " : "Bukti penerimaan terakhir: "}<strong>{receipt.id}</strong> — {receipt.state === "SQL_SAVED" && receipt.mode === "test" ? "DATA UJI TERSIMPAN DI SQL" : receipt.state === "SQL_SAVED" ? "TERSIMPAN DI SQL — PENERUSAN OTOMATIS, BELUM KONFIRMASI TF SLIP" : receipt.state === "TEST_SAVED" ? "DATA UJI TERSIMPAN" : receipt.id.startsWith("LKH99-") ? "UJI TERSIMPAN / ANTREAN VERIFIKASI LEADER, BELUM TERBIT TF SLIP" : "TERSIMPAN / MASUK ANTREAN, BELUM KONFIRMASI TF SLIP"}</p>}
         </div>
         {lineSelected === "LINE_99" && <div className="rounded-2xl border border-amber-300 bg-amber-50 p-5 mb-6 text-amber-950" role="note">
-          <p className="font-bold">{["trial", "sql-preview"].includes(connection.source) ? "Line 99 — Uji penyimpanan laporan" : "Line 99 — Pengujian alur lengkap"}</p>
-          <p className="text-sm mt-2">{connection.source === "sql-preview" ? "Uji penerimaan SQL terisolasi. Data berhenti di database uji; dashboard leader dan TF Slip belum menerima laporan dari versi ini." : connection.source === "trial" ? "Gunakan mesin dummy dan part BODY_DUMMY-*. Setelah dikirim, laporan tersimpan di database trial dan memiliki bukti penerimaan. Leader dapat memeriksa, merevisi, dan menyetujui laporan melalui halaman verifikasi trial. Penerusan TF Slip masih dalam pengembangan." : "Gunakan mesin dummy dan part BODY_DUMMY-*. Laporan diteruskan ke dashboard leader untuk diperiksa, direvisi, atau disetujui. Setelah disetujui, hasil masuk TF Slip yang sama dengan penanda IS_TEST."}</p>
+          <p className="font-bold">{connection.source === "sql-preview" ? "Line 99 — Uji penerimaan SQL" : "Line 99 — Pengujian alur lengkap"}</p>
+          <p className="text-sm mt-2">{connection.source === "sql-preview" ? "Data uji berhenti di SQL; belum diteruskan ke leader atau TF Slip." : "Gunakan mesin dummy dan part BODY_DUMMY-*. Laporan diteruskan ke dashboard leader untuk diperiksa, direvisi, atau disetujui. Setelah disetujui, hasil masuk TF Slip yang sama dengan penanda IS_TEST."}</p>
           <p className="text-sm mt-2">Satu laporan boleh memilih operator dan helper. Untuk dua laporan terpisah pada part–mesin yang sama, kirim masing-masing sekali.</p>
         </div>}
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -707,4 +708,3 @@ export default function LaporanKerjaForm() {
     </div>
   );
 }
-

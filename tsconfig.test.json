@@ -19,7 +19,7 @@
     "lib/champer-telemetry.ts",
     "lib/sql-intake.ts",
     "lib/sql-delivery.ts",
-    "lib/neon-trial.ts"
+    "lib/sql-preview-master.ts"
   ],
   "exclude": [
     "node_modules"

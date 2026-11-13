@@ -1,6 +1,6 @@
 # SQL intake for the existing LKH form
 
-Status: prepared and locally tested; not enabled on the production site.
+Status: prepared and locally tested; not enabled on the production site. Based on the production portal commit `292b62747df32af75ae66bf9f6b6da65eb1b3c87`.
 
 The existing `/api/submissions` route gains a gated SQL intake path. `SQL_SAVED` confirms a committed PostgreSQL report. That same row is the durable delivery job. It does not confirm leader approval or TF Slip publication. The original payload and ID are forwarded unchanged to the existing signed Apps Script receiver. Existing production leader and TF Slip behavior continues after the receiver accepts the report.
 
@@ -38,11 +38,12 @@ The form refreshes its SQL master cache from the signed live master endpoint whe
 
 ## Verification
 
-- `npm test` passes 124 tests, including receipt identity checks, retryable failure classification and preservation of review failures.
+- `npm test` passes 143 tests including the current portal tests, including receipt identity checks, retryable failure classification and preservation of review failures.
 - TypeScript and ESLint on changed files pass.
 - `npm run build` completes. The existing preferredRegion deprecation warning remains.
 - Full-repository lint still reports pre-existing CommonJS import errors in unrelated scripts.
 - `scripts/sql-intake-integration.cjs` runs against only the isolated trial database. It covers 27 concurrent inserts, 27 retries of one ID, conflicting payload, invalid report, competing delivery workers, timeout recovery, review state and expired-lease recovery. Its fake downstream never contacts Apps Script. The first remote runs encountered a database HTTP timeout through the work environment proxy; a proxy-adjusted run uses a 120-second query deadline only inside the guarded integration harness. Production retains its 12-second deadline. These remote harness timings must not be presented as shopfloor or regional Vercel latency.
+- The isolated integration run passed all listed assertions, including competing worker leases, timeout recovery, review state and expired-lease recovery. Its 27 concurrent inserts took 24.863–25.063 seconds across the remote proxy; this is not a production latency result.
 - Preview deployment, browser flow, real receiver acknowledgement using a dummy Line 99 report, and a scheduled retry invocation still need verification before rollout.
 
 ## Rollback
