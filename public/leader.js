@@ -22,7 +22,7 @@ function addOperatorTargetLinks(items) {
   const link=document.createElement('a');
   link.href=operatorWorkUrl(item.line,item.machine,item.part);
   link.className='tgbutton';
-  link.textContent=item.line==='LINE_99'&&item.machine==='AUTO CHAMPER'?'Pekerjaan / Start–End simulasi':'Buka pekerjaan operator';
+  link.textContent=item.line==='LINE_99'&&item.machine==='AUTO CHAMPER'?'Pekerjaan / Start–End Champer':'Buka pekerjaan operator';
   button.parentElement.append(link);
  });
 }
