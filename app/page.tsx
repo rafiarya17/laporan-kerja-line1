@@ -52,6 +52,7 @@ export default function LaporanKerjaForm() {
     fetch("/api/master", {cache: "no-store"}).then(r => r.json()).then(result => {
       if (!result.mapping || !Object.keys(result.mapping).length) throw Error();
       setMapping(result.mapping);
+      if (result.source === "trial") setLineSelected(current => Object.hasOwn(result.mapping, current) ? current : "LINE_99");
       setConnection({ready: result.ready === true, mode: result.mode, source: result.source});
     }).catch(() => setConnection({ready: false, mode: "test", source: "offline"}));
     try {
@@ -706,3 +707,4 @@ export default function LaporanKerjaForm() {
     </div>
   );
 }
+

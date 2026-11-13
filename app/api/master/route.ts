@@ -1,8 +1,12 @@
+import { neonTrialEnabled, trialMaster } from "@/lib/neon-trial";
 import snapshot from "@/constants/formMapping.json";
 import type { Master } from "@/lib/lkh";
 import { callReceiver, receiverMode, receiverReady } from "@/lib/receiver";
 
 export async function GET() {
+  if (neonTrialEnabled()) return Response.json({
+    mapping: trialMaster, version: "neon-trial-v1", mode: "test", ready: true, source: "trial",
+  }, {headers: {"Cache-Control": "no-store"}});
   if (receiverReady()) {
     try {
       const result = await callReceiver("master", {});
@@ -15,3 +19,4 @@ export async function GET() {
   const mapping: Master = Object.fromEntries(Object.entries(snapshot).map(([line, config]) => [line, { operators: config.operators, mesin_part_mapping: Object.fromEntries(Object.entries(config.mesin_part_mapping).map(([machine, v]) => [machine, { options: v.options }])) }]));
   return Response.json({ mapping, version: "snapshot-2026-10-29", mode: receiverMode(), ready: false, source: "snapshot" }, { headers: { "Cache-Control": "no-store" } });
 }
+
