@@ -1,9 +1,14 @@
+import { sqlIntakeEnabled, intakeMaster } from "@/lib/sql-intake";
 import snapshot from "@/constants/formMapping.json";
 import {portalPreview,previewMaster,previewHeaders} from '@/lib/portal-preview';
 import type { Master } from "@/lib/lkh";
 import { callReceiver, receiverMode, receiverReady } from "@/lib/receiver";
 
 export async function GET() {
+  if (sqlIntakeEnabled()) {
+    try { return Response.json({...await intakeMaster(), mode: process.env.VERCEL_ENV === "preview" ? "test" : "production", ready: true, source: process.env.VERCEL_ENV === "preview" ? "sql-preview" : "live"}, {headers:{"Cache-Control":"no-store"}}); }
+    catch { return Response.json({ready:false, mode:"production", source:"offline", mapping:{}, version:"unavailable"}, {status:503,headers:{"Cache-Control":"no-store"}}); }
+  }
   if(portalPreview())return Response.json(previewMaster(),{headers:previewHeaders});
   if (receiverReady()) {
     try {

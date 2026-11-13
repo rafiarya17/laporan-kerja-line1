@@ -21,6 +21,12 @@ export function receiverReady() {
   const prefix = mode === "production" ? "LKH_PRODUCTION" : "LKH_TEST";
   return Boolean(process.env[prefix + "_URL"] && receiverSecret(mode));
 }
+/** ASCII transport avoids Apps Script POST decoding differences for non-ASCII names/parts.
+ * JSON.parse restores the original UTF-16 text, including surrogate pairs.
+ */
+export function receiverWireBody(value: unknown): string {
+  return JSON.stringify(value).replace(/[\u007f-\uffff]/g, char => "\\u" + char.charCodeAt(0).toString(16).padStart(4, "0"));
+}
 export async function callReceiver(action: string, payload: unknown, timeoutMs = 22000) {
   const mode = receiverMode();
   const prefix = mode === "production" ? "LKH_PRODUCTION" : "LKH_TEST";
@@ -28,15 +34,20 @@ export async function callReceiver(action: string, payload: unknown, timeoutMs =
   if (!endpoint || !secret) throw new Error("RECEIVER_NOT_CONFIGURED");
   const url = new URL(endpoint);
   if (url.protocol !== "https:" || url.hostname !== "script.google.com" || !/^\/macros\/s\/[^/]+\/exec$/.test(url.pathname)) throw new Error("INVALID_RECEIVER_URL");
-  const body = JSON.stringify({ action, mode, timestamp: Date.now(), payload });
+  const body = receiverWireBody({ action, mode, timestamp: Date.now(), payload });
   const signature = createHmac("sha256", secret).update(body).digest("hex");
   let response: Response;
-  try { response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ body, signature }), signal: AbortSignal.timeout(timeoutMs), cache: "no-store", redirect: "follow" }); }
+  try { response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json; charset=utf-8" }, body: JSON.stringify({ body, signature }), signal: AbortSignal.timeout(timeoutMs), cache: "no-store", redirect: "follow" }); }
   catch (error) { throw new ReceiverError(error instanceof Error && ['TimeoutError','AbortError'].includes(error.name) ? 'RECEIVER_TIMEOUT' : 'RECEIVER_NETWORK_ERROR'); }
   if (!response.ok) throw new ReceiverError("RECEIVER_UNAVAILABLE");
   let result;
   try { result = await response.json(); } catch { throw new ReceiverError('RECEIVER_INVALID_RESPONSE'); }
-  if (!result || result.ok !== true) throw new ReceiverError(SAFE_CODES.has(result?.error) ? result.error : 'RECEIVER_REJECTED');
+  if (!result || result.ok !== true) {
+    // Private server diagnostics only: never include payloads, signatures or configuration.
+    if (action === 'leader') console.warn('LEADER_RECEIVER_REJECTED', String(result?.error || 'INVALID_RESPONSE').slice(0, 240));
+    throw new ReceiverError(SAFE_CODES.has(result?.error) ? result.error : 'RECEIVER_REJECTED');
+  }
   if (result.mode !== mode) throw new ReceiverError('RECEIVER_MODE_MISMATCH');
   return result;
 }
+
