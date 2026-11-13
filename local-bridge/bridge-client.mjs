@@ -4,6 +4,7 @@ import {resolve,dirname,join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {createHash,randomUUID,timingSafeEqual} from 'node:crypto';
 import http from 'node:http';
+import {telemetryAdapter} from './telemetry-client.mjs';
 const UUID=/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i;
 export function validateCommand(c){
  if(!c||!UUID.test(c.id)||!UUID.test(c.lease)||c.readOnly!==true||c.machine!=='AUTO_CHAMPER'||c.tag!=='DXP|Device1|D100'||!['START','END'].includes(c.purpose)||c.localRequestKey!=='CLOUD-'+c.id||c.localTimeoutMs!==30000||!Number.isSafeInteger(c.expiresAt))throw Error('COMMAND_REJECTED');
@@ -74,12 +75,16 @@ async function main(){
  });
  await new Promise((yes,no)=>{lock.once('error',no);lock.listen(4349,'127.0.0.1',yes);});
  const client=adapter({config:c,journal,save:j=>atomic(stateFile,j)});
+ const live=telemetryAdapter({config:c});
+ let livePending=Promise.resolve(),liveError='',liveBusy=false;
+ const sendLive=()=>{if(liveBusy||stopping)return;liveBusy=true;livePending=live.tick().then(()=>{if(liveError)console.log('Monitor Live tersambung kembali.');liveError='';}).catch(e=>{if(e.message!==liveError)console.log('Monitor Live menunggu pengiriman; Start/End tetap terpisah.');liveError=e.message;}).finally(()=>{liveBusy=false;});};
+ sendLive();const liveTimer=setInterval(sendLive,5000);
  process.on('SIGINT',()=>{stopping=true;if(wait)wait();});
- console.log('Penghubung cloud Champer aktif. Hanya baca D100 saat Start/End dari tablet terpasang.');
+ console.log('Penghubung cloud Champer aktif. Start/End membaca D100 sesuai permintaan. Monitor Live mengirim jurnal D100 tiap 5 detik saat ada pembaruan; aktifkan Auto Read D100 pada kolektor untuk pengamatan berkelanjutan.');
  let previous='';
  while(!stopping){let delay=15000;try{const r=await client.tick();delay=r.delay;if(r.state!==previous){console.log(new Date().toLocaleTimeString()+' '+r.state);previous=r.state;}}catch(e){const safe=/^[A-Z0-9_]+$/.test(e.message)?e.message:'CONNECTION_UNAVAILABLE';if(safe!==previous){console.log(safe+'; permintaan dan hasil tersimpan, coba lagi otomatis.');previous=safe;}}
   if(!stopping)await new Promise(r=>{const t=setTimeout(()=>{wait=null;r();},delay);wait=()=>{clearTimeout(t);wait=null;r();};});
  }
- await new Promise(r=>lock.close(r));console.log('Penghubung cloud berhenti. API lokal, VB dan Takebishi tetap seperti semula.');
+ clearInterval(liveTimer);await livePending;await new Promise(r=>lock.close(r));console.log('Penghubung cloud berhenti. API lokal, VB dan Takebishi tetap seperti semula.');
 }
 if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url))main().catch(e=>{console.error(e.code==='EADDRINUSE'?'Penghubung sudah berjalan atau port khusus sedang dipakai. Tidak membuka instance kedua.':e.message);process.exitCode=1;});
