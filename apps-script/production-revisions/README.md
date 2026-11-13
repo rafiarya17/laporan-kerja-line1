@@ -20,4 +20,15 @@ Concurrency: web submissions use source hashes; the worker serializes writes usi
 
 Limit: current report list contains PRODUKSI reports; separate DANDORI records are not included. No claim of SQL revision migration or a new SQL TF view is made. Existing TF publication and derived sync can still be delayed.
 
-Deployment pending; do not treat repository presence as activation evidence.
+## Verified deployment — 13 November 2026
+
+- AndonScript library version 12; receiver version 18 pins AndonPilot 12, preserving its existing deployment URL and access settings.
+- Vercel production code: `237f66d6415e1382638b4614c5f458d4519992b1`, deployment `dpl_8NrR4EXYFU33LMS2H1NUDEvMRYmc`.
+- `setupWebRevisionNov13` completed at 16:58:00 WIB: WEB_REVISION_ENABLED=1; WEB_REVISION_LINES=LINE_1 through LINE_8 plus LINE_99.
+- Live dummy restoration through the web alone: report `LKH99-fb0d1195-e029-4dcc-bdf0-66ba0e694330`, request `1bf17ba0-ba2b-48a3-9a44-1d97cdc384e6`, OK 138 to 137. TF DATA PRODUKSI row 3478 retained the same ID and IS_TEST=TRUE, showed 137 at 16:54; worker log confirmed ED19_JOB_DONE LEADER_ACTION at 16:54:49. Acceptance was 16:51:22; this single-test timing is not an SLA.
+- 153 tests passed, changed-file lint and TypeScript passed, Vercel production build READY. No real production report was modified in testing.
+- A Unicode request exposed HMAC/decoding mismatch. Vercel now serializes non-ASCII characters as JSON Unicode escapes before signing, with explicit UTF-8 content type; parsed business data is unchanged.
+- Existing source-sheet correction controls are retained as fallback. Use one revision surface per report at a time. The no-login page records a self-declared leader name, not authenticated identity.
+
+Rollback of this adapter: set WEB_REVISION_ENABLED=0 (after checking/draining accepted LEADER_ACTION revisions); leave original intake, source sheets and existing worker intact. Do not delete accepted revision jobs.
+

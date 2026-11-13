@@ -1,6 +1,6 @@
 # CURRENT STATE REPORT — Berlindo Vercel / SQL intake
 
-Audit, pilot and subsequently authorized all-line rollout: 13 November 2026. This report covers the Vercel repository, deployment configuration and the tested manual-LKH integration. It is not a claim that every file and installed trigger of the separate live LINE 3 Apps Script project was audited. No live Apps Script source was edited.
+Audit, pilot and subsequently authorized all-line rollout: 13 November 2026. This report covers the Vercel repository, deployment configuration and the tested manual-LKH integration. It is not a claim that every file and installed trigger of the separate live LINE 3 Apps Script project was audited. The subsequent web-revision rollout adds an AndonScript module and focused leader-workspace hooks; it is not a full Apps Script audit.
 
 ## Baseline and ownership
 
@@ -36,7 +36,7 @@ Audit, pilot and subsequently authorized all-line rollout: 13 November 2026. Thi
 7. The current no-login leader endpoint uses origin checks as CSRF protection, not user identity. This existing choice was preserved; it should not be represented as authenticated leader authorization.
 8. Worker recovery now runs every minute. This does not guarantee one-minute TF publication. Polling consumes compute even with no reports and prevents idle suspension; Free-plan quota monitoring and idle-aware scheduling remain operational follow-up work.
 9. Live PPC controls retain automatic publication for new production reports and revisions. Recent reports submitted on 13 November from Lines 1, 2 and 5 show system approval and TERBIT without a human approver. Line 99 remains the separate manual-approval test workflow. Invalid submissions and conflicting IDs are still held rather than silently published.
-10. Production revisions remain available through each line's source response sheet and SUBMIT REVISI LKH. Line 1's live revision form was verified. Its legacy help text still mentions approval even though active PPC policy skips manual approval. Web-card revisions remain Line 99 only; this rollout does not broaden those editing permissions.
+10. Production revisions remain available through each line's source response sheet and SUBMIT REVISI LKH. Line 1's live revision form was verified. Its legacy help text still mentions approval even though active PPC policy skips manual approval. A subsequent web-revision rollout adds the production-line correction adapter described in `apps-script/production-revisions/README.md`; consult that deployment record for activation status.
 
 ## Verification evidence
 
@@ -54,4 +54,15 @@ The initial all-line request was blocked pending explicit authorization. The use
 
 For rollback, disable new SQL intake in the same compatible code while retaining database and worker access to drain accepted reports. Do not delete SQL receipts or shut off the worker with pending jobs.
 
-The next development phase is SQL-backed leader decisions with versioned revisions, followed by SQL-backed TF Slip and a version-aware spreadsheet mirror. Those are not part of this pilot release.
+The next development phase is SQL-backed versioned revisions and SQL-backed TF Slip with a version-aware spreadsheet mirror. Current web corrections still use the source sheets and existing worker; original SQL intake payloads do not become revised records automatically.
+
+## Web correction release (subsequent work, 13 November)
+
+- Vercel production deployment `dpl_8NrR4EXYFU33LMS2H1NUDEvMRYmc`, commit `237f66d6415e1382638b4614c5f458d4519992b1`, retains the SQL intake release and adds web revisions.
+- AndonScript library version 12; receiver pins version 12 and is redeployed as receiver version 18 at its existing URL. Receiver `Code.gs` was not changed.
+- The new dialog edits by stable report ID, requires a correction reason, validates against current master, rejects stale versions and reuses the existing LEADER_ACTION worker. No extra polling trigger or queue is introduced.
+- Signed receiver requests now escape non-ASCII code units before signing/transmission. A live dummy operator containing a middle dot exposed UNAUTHORIZED from mismatched wire decoding; the ASCII representation preserves parsed content and corrects this failure.
+- 153 automated tests passed; changed-file lint, TypeScript and production build passed. New tests cover same-ID retries, stale-source rejection, resume after source write, master validation and Unicode wire signatures.
+- Live dummy `LKH99-fb0d1195-e029-4dcc-bdf0-66ba0e694330` was changed 137 to 138 for diagnosis, then restored through the web alone to 137. Restoration request `1bf17ba0-ba2b-48a3-9a44-1d97cdc384e6` was accepted at 16:51:22 WIB; DATA PRODUKSI row 3478 showed 137 at 16:54, with the same ID and IS_TEST=TRUE. This is a single live test, not a latency guarantee.
+- The first 137-to-138 diagnostic request was queued through a temporary Apps Script helper after the original web request failed signature validation; that helper was removed. Only the restoration is evidence of the complete corrected web-to-TF path.
+- Existing manual correction controls remain as fallback. Simultaneous manual and web edits are not an atomic spreadsheet transaction. No real production report was edited in validation.
