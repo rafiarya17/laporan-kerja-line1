@@ -11,7 +11,7 @@ export const initialForm = {
 };
 export type LkhForm = typeof initialForm;
 export type Submission = { id: string; line: string; form: LkhForm };
-export type Receipt = { id: string; state: "TEST_SAVED" | "QUEUED"; mode: "test" | "production"; receivedAt: string };
+export type Receipt = { id: string; state: "TEST_SAVED" | "QUEUED" | "SQL_SAVED"; mode: "test" | "production"; receivedAt: string };
 
 export function resetForContext(form: LkhForm): LkhForm {
   return { ...initialForm, tanggal: form.tanggal, shift: form.shift };
@@ -96,3 +96,4 @@ export function validateSubmission(value: unknown, master: Master, now = Date.no
   }
   return [...new Set(errors)];
 }
+

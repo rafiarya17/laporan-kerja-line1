@@ -1,3 +1,6 @@
+import { after } from "next/server";
+import { sqlIntakeEnabled, submitSqlReport } from "@/lib/sql-intake";
+import { drainSqlDelivery } from "@/lib/sql-delivery";
 import { neonTrialEnabled } from "@/lib/neon-trial";
 import { submitNeonTrial } from "@/lib/neon-submission-service";
 import type { Submission } from "@/lib/lkh";
@@ -10,14 +13,17 @@ export async function POST(request: Request) {
   const origin = request.headers.get("origin");
   if (!origin || origin !== new URL(request.url).origin) return fail("Asal pengiriman tidak valid.", 403);
   if (!request.headers.get("content-type")?.startsWith("application/json")) return fail("Format pengiriman harus JSON.", 415);
-  if (!neonTrialEnabled() && !receiverReady()) return fail("Penerima belum diaktifkan. Isian tetap tersimpan di perangkat ini.", 503);
+  if (!sqlIntakeEnabled() && !neonTrialEnabled() && !receiverReady()) return fail("Penerima belum diaktifkan. Isian tetap tersimpan di perangkat ini.", 503);
   try {
     const raw = await request.text();
     if (new TextEncoder().encode(raw).length > 24000) return fail("Laporan terlalu panjang.", 413);
     let payload: Submission;
     try { payload = JSON.parse(raw); } catch { return fail("Format laporan tidak valid.", 400); }
     const started = performance.now();
-    const result = neonTrialEnabled() ? await submitNeonTrial(payload) : await submitReport(payload, request.headers.get("x-lkh-retry") === "1", receiverMode(), callReceiver);
+    const result = sqlIntakeEnabled() ? await submitSqlReport(payload) : neonTrialEnabled() ? await submitNeonTrial(payload) : await submitReport(payload, request.headers.get("x-lkh-retry") === "1", receiverMode(), callReceiver);
+    if (sqlIntakeEnabled() && result.body.ok) after(async () => {
+      try { await drainSqlDelivery(); } catch { console.error("LKH_SQL_DELIVERY_RETRY_REQUIRED"); }
+    });
     return Response.json(result.body, {status: result.status, headers: {"Cache-Control": "no-store", "Server-Timing": `submission;dur=${Math.round(performance.now() - started)}`}});
   } catch {
     return fail("Penerimaan belum dapat dikonfirmasi. Jangan buat laporan baru; coba kirim ulang dengan ID yang sama.", 502);

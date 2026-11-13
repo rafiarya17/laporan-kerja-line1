@@ -1,6 +1,27 @@
 {
   "extends": "./tsconfig.json",
-  "compilerOptions": { "module": "commonjs", "moduleResolution": "node", "outDir": ".test-build", "noEmit": false, "incremental": false, "isolatedModules": false, "plugins": [] },
-  "include": ["lib/lkh.ts", "lib/receiver.ts", "lib/submission-service.ts", "lib/champer-core.ts", "lib/champer-store.ts", "lib/champer-auth.ts", "lib/champer-telemetry.ts"],
-  "exclude": ["node_modules"]
+  "compilerOptions": {
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "outDir": ".test-build",
+    "noEmit": false,
+    "incremental": false,
+    "isolatedModules": false,
+    "plugins": []
+  },
+  "include": [
+    "lib/lkh.ts",
+    "lib/receiver.ts",
+    "lib/submission-service.ts",
+    "lib/champer-core.ts",
+    "lib/champer-store.ts",
+    "lib/champer-auth.ts",
+    "lib/champer-telemetry.ts",
+    "lib/sql-intake.ts",
+    "lib/sql-delivery.ts",
+    "lib/neon-trial.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
 }
