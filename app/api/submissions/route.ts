@@ -16,8 +16,9 @@ export async function POST(request: Request) {
     if (new TextEncoder().encode(raw).length > 24000) return fail("Laporan terlalu panjang.", 413);
     let payload: Submission;
     try { payload = JSON.parse(raw); } catch { return fail("Format laporan tidak valid.", 400); }
+    const started = performance.now();
     const result = neonTrialEnabled() ? await submitNeonTrial(payload) : await submitReport(payload, request.headers.get("x-lkh-retry") === "1", receiverMode(), callReceiver);
-    return Response.json(result.body, {status: result.status, headers: {"Cache-Control": "no-store"}});
+    return Response.json(result.body, {status: result.status, headers: {"Cache-Control": "no-store", "Server-Timing": `submission;dur=${Math.round(performance.now() - started)}`}});
   } catch {
     return fail("Penerimaan belum dapat dikonfirmasi. Jangan buat laporan baru; coba kirim ulang dengan ID yang sama.", 502);
   }
