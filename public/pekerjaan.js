@@ -79,7 +79,7 @@ function render() {
   }
   element('history-notice').textContent=historyMessage;
   if(cloudJobs)ChamperWork.table(element('job-history'),cloudJobs,{date:element('history-date').value,shift:element('history-shift').value,status:element('history-status').value,query:element('history-search').value},(td,j)=>{const a=text(td,'a',ChamperWork.closed(j)?'Lihat target / sesi baru':'Lanjutkan sesi','action');a.href=ChamperWork.closed(j)?'/pekerjaan.html?'+new URLSearchParams({date:j.target.date,shift:j.target.shift,line:j.target.line,machine:j.target.machine,part:j.target.part}):'/champer-plc.html';});
-  else element('job-history').replaceChildren();
+  else element('job-history').replaceChildren();document.dispatchEvent(new Event('portal:ready'));
 }
 async function load() {
   const current = ++epoch;

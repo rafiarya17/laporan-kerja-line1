@@ -1,5 +1,5 @@
 import { after } from "next/server";
-import { sqlIntakeEnabled, submitSqlReport } from "@/lib/sql-intake";
+import { sqlIntakeEnabled, sqlSubmissionEnabled, submitSqlReport } from "@/lib/sql-intake";
 import { drainSqlDelivery } from "@/lib/sql-delivery";
 import type { Submission } from "@/lib/lkh";
 import {portalPreview,previewBlocked} from '@/lib/portal-preview';
@@ -20,8 +20,8 @@ export async function POST(request: Request) {
     let payload: Submission;
     try { payload = JSON.parse(raw); } catch { return fail("Format laporan tidak valid.", 400); }
     const started=performance.now();
-    const result = sqlIntakeEnabled() ? await submitSqlReport(payload) : await submitReport(payload, request.headers.get("x-lkh-retry") === "1", receiverMode(), callReceiver);
-    if (sqlIntakeEnabled() && result.body.ok) after(async () => {
+    const result = sqlSubmissionEnabled(payload?.line) ? await submitSqlReport(payload) : await submitReport(payload, request.headers.get("x-lkh-retry") === "1", receiverMode(), callReceiver);
+    if (sqlSubmissionEnabled(payload?.line) && result.body.ok) after(async () => {
       try { await drainSqlDelivery(); } catch { console.error("LKH_SQL_DELIVERY_RETRY_REQUIRED"); }
     });
     return Response.json(result.body, {status: result.status, headers: {"Cache-Control": "no-store", "Server-Timing": `submission;dur=${Math.round(performance.now()-started)}`}});

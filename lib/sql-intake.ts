@@ -4,8 +4,11 @@ import { callReceiver } from './receiver';
 import { trialMaster } from './sql-preview-master';
 
 export function sqlIntakeEnabled() {
-  return process.env.LKH_SQL_INTAKE === '1' && Boolean(process.env.DATABASE_URL) &&
+  return ['1','pilot'].includes(process.env.LKH_SQL_INTAKE || '') && Boolean(process.env.DATABASE_URL) &&
     (process.env.VERCEL_ENV === 'production' || process.env.LKH_SQL_PREVIEW === '1');
+}
+export function sqlSubmissionEnabled(line: string) {
+  return sqlIntakeEnabled() && (process.env.LKH_SQL_INTAKE !== 'pilot' || line === 'LINE_99');
 }
 // A fresh deadline for every HTTP query, including sequential worker queries.
 export const sqlDatabase = () => neon(process.env.DATABASE_URL!, {fetchOptions:{
