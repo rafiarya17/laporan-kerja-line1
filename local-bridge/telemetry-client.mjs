@@ -12,7 +12,12 @@ export function telemetryAdapter({config,fetcher=fetch,now=Date.now}){
     localReady=h.ready===true&&s.bridge?.active===true&&s.bridge?.collector_ready===true;
     const c=s.latest?.counter,r=c?.last_reading;
     status=['READ_OK','READ_ERROR','DISCONNECTED'].includes(c?.read_status)?c.read_status:'UNKNOWN';
-    if(r&&r.communication_quality!=='BAD'&&/^\d{1,4}$/.test(String(r.value))&&r.event_id?.startsWith(config.collectorId+':')&&Number.isFinite(Date.parse(r.observed_at)))reading={eventId:r.event_id,value:Number(r.value),observedAt:Date.parse(r.observed_at)};
+    const rawValue=String(r?.value);
+    const value=Number(rawValue);
+    const observedAt=Date.parse(r?.observed_at);
+    if(r&&r.communication_quality!=='BAD'&&/^(0|[1-9]\d*)$/.test(rawValue)&&Number.isSafeInteger(value)&&r.event_id?.startsWith(config.collectorId+':')&&Number.isFinite(observedAt)){
+     reading={eventId:r.event_id,value,observedAt};
+    }
    }catch{}
    const signature=JSON.stringify({reading,localReady,status});
    if(signature===lastSignature&&now()-lastSent<15000)return {state:'UNCHANGED'};

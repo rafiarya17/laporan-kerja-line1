@@ -8,7 +8,7 @@ export function validateTelemetry(b:Record<string,unknown>,collector:string,now:
  let reading:Reading|null=null;
  if(b.reading!==null){
   const r=b.reading as Reading;
-  if(!r||typeof r.eventId!=='string'||!r.eventId.startsWith(collector+':')||r.eventId.length>180||!Number.isSafeInteger(r.value)||r.value<0||r.value>9999||!Number.isSafeInteger(r.observedAt)||r.observedAt<1||r.observedAt>b.sentAt+5000)fail('TELEMETRY_READING_INVALID',400);
+  if(!r||typeof r.eventId!=='string'||!r.eventId.startsWith(collector+':')||r.eventId.length>180||!Number.isSafeInteger(r.value)||r.value<0||!Number.isSafeInteger(r.observedAt)||r.observedAt<1||r.observedAt>b.sentAt+5000)fail('TELEMETRY_READING_INVALID',400);
   reading={eventId:r.eventId,value:r.value,observedAt:r.observedAt};
  }
  return {sentAt:b.sentAt,receivedAt:now,readingReceivedAt:reading?now:null,localReady:b.localReady,reading,status:String(b.status)};

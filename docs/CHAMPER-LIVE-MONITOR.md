@@ -8,7 +8,7 @@ PLC → existing Takebishi DDE → collector Auto Read D100 → local journal/AP
 
 The cloud bridge checks the journal every five seconds. Changed observations are forwarded at the next check; unchanged state is heartbeated every fifteen seconds. The visible browser refreshes every five seconds. This does not require an operator job or issue a Start/End request. The collector must have D100 connected **and Auto Read enabled** for ongoing observations. Opening the dashboard alone does not initiate PLC reads. Existing manual Start/End captures stay separate and unchanged.
 
-No changes to VB utama, Takebishi settings, PLC logic, production reports or TF Slip. This release does not add MTC/dandori monitoring or combine D101. D100 values above 9999 are rejected rather than misinterpreted.
+The monitor displays the raw D100 value received by the PC, including values above 9999, as long as the integer can be represented exactly. Job boundaries and production totals retain their separate range checks.
 
 ## Truthfulness and delays
 
