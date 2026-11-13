@@ -1,5 +1,6 @@
 'use strict';
 const el=id=>document.getElementById(id),pendingKey='champer-cloud-pending-v1';
+let refreshing=false,refreshAgain=false;
 let snapshot=null,selected=null,current=null,pending=null,busy=false,timer=null,masterReady=false,qualityJob=null,reportEnabled=false;
 const reportDrafts=new Map();
 const timeDrafts=new Map();let timeEditorJob=null,historyInitialized=false;
@@ -13,7 +14,7 @@ function wibMinute(iso){return iso?new Date(Date.parse(iso)+7*3600000).toISOStri
 function timingEditor(box,j){
  box.replaceChildren();const h=document.createElement('h2');h.textContent='Konfirmasi jam kerja aktual';box.append(h);
  const note=document.createElement('p');note.className='hint';note.textContent=`Waktu pembacaan: ${wibMinute(j.startEvidence?.observed_at).replace('T',' ')} → ${wibMinute(j.endEvidence?.observed_at).replace('T',' ')} WIB. Sesuaikan jam kerja bila tombol ditekan terlambat atau lebih awal. Perubahan jam tidak mengubah counter maupun selisih; bila ada produksi di luar waktu kerja tersebut, minta pemeriksaan leader.`;box.append(note);
- const draft=timeDrafts.get(j.id)||{start:j.workTime?.start||wibMinute(j.startEvidence?.observed_at),end:j.workTime?.end||wibMinute(j.endEvidence?.observed_at),overtime:j.workTime?.overtime||'',reason:j.workTime?.reason||'',confirmed:false};timeDrafts.set(j.id,draft);
+ const draft=timeDrafts.get(j.id)||window.PortalDraft?.get('time:'+j.id+':'+j.revision)||{start:j.workTime?.start||wibMinute(j.startEvidence?.observed_at),end:j.workTime?.end||wibMinute(j.endEvidence?.observed_at),overtime:j.workTime?.overtime||'',reason:j.workTime?.reason||'',confirmed:false};timeDrafts.set(j.id,draft);
  const fields=document.createElement('div');fields.className='time-fields';
  for(const [key,label,type] of [['start','Mulai kerja aktual (WIB)','datetime-local'],['end','Selesai kerja aktual (WIB)','datetime-local'],['overtime','Ada lembur?','select'],['reason','Alasan penyesuaian jam (wajib bila berubah)','text']]){const wrap=document.createElement('label');wrap.textContent=label;const input=document.createElement(type==='select'?'select':'input');input.dataset.timeField=key;if(type==='select'){for(const [v,t] of [['','Pilih status lembur'],['No','Tidak'],['Yes','Ya']])input.add(new Option(t,v));}else input.type=type;input.value=draft[key];if(key==='reason')input.maxLength=1000;input.oninput=()=>{draft[key]=input.value;draft.confirmed=false;check.checked=false;};wrap.append(input);fields.append(wrap);}box.append(fields);
  const explanation=document.createElement('p');explanation.className='hint';explanation.textContent='Pilih lembur sesuai kondisi kerja dan verifikasi leader. Jam selesai yang lebih lambat tidak otomatis berarti lembur. Jam shift tidak diasumsikan oleh aplikasi.';box.append(explanation);
@@ -44,8 +45,8 @@ function reportControls(j){
    if(key!=='lembur'&&j.quality.issue!=='Ada')continue;
    const wrap=document.createElement('label');wrap.textContent=label;const input=document.createElement(type==='select'?'select':'input');
    if(type==='select'){for(const [v,t] of [['','Pilih'],['No','Tidak'],['Yes','Ya']])input.add(new Option(t,v));}else input.type=type;
-   input.disabled=!!j.report;input.value=j.report?.payload.form[key]??reportDrafts.get(j.id)?.[key]??'';
-   input.oninput=()=>reportDrafts.set(j.id,{...reportDrafts.get(j.id),[key]:input.value});
+   input.disabled=!!j.report;input.value=j.report?.payload.form[key]??reportDrafts.get(j.id)?.[key]??window.PortalDraft?.get('report:'+j.id)?.[key]??'';
+   input.oninput=()=>{const d={...window.PortalDraft?.get('report:'+j.id),...reportDrafts.get(j.id),[key]:input.value};reportDrafts.set(j.id,d);window.PortalDraft?.set('report:'+j.id,d);};
    wrap.append(input);box.append(wrap);controls[key]=input;
   }
   const note=document.createElement('p');note.textContent='Kirim sebagai laporan UJI, bukan pengesahan produksi. Jumlah OK/Repair/Reject berasal dari input operator; bukti counter tetap tersimpan di sesi cloud.';box.append(note);
@@ -75,15 +76,27 @@ function display(){
  el('quality').hidden=!['END_CAPTURED','REVIEW_REQUIRED'].includes(st);
  el('work-time').hidden=!['END_CAPTURED','REVIEW_REQUIRED'].includes(st);
  if(!el('work-time').hidden){const key=current.id+':'+current.revision+':'+busy;if(timeEditorJob!==key){timingEditor(el('work-time'),current);timeEditorJob=key;}}
- if(current&&qualityJob!==current.id){qualityJob=current.id;const defaults={ok:'',repair:'0',reject:'0',issue:'Tidak',classification:'MANUSIA',problem:'',action:'',pic:''};for(const id of Object.keys(defaults))el(id).value=current.quality?.[id]??defaults[id];}
+ if(current&&qualityJob!==current.id){qualityJob=current.id;const saved=window.PortalDraft?.get('quality:'+current.id+':'+current.revision);const defaults={ok:'',repair:'0',reject:'0',issue:'Tidak',classification:'MANUSIA',problem:'',action:'',pic:''};for(const id of Object.keys(defaults))el(id).value=saved?.[id]??current.quality?.[id]??defaults[id];}
  el('save-quality').disabled=busy||!!pending;
  el('complete').disabled=busy||!!pending||st!=='END_CAPTURED'||!current?.quality||!current?.workTime;
  el('issue-fields').hidden=el('issue').value!=='Ada';
  renderHistory();
 }
-async function refresh(){clearTimeout(timer);try{const caps=await call('capabilities');reportEnabled=caps.reportsEnabled===true;if(!caps.enabled){el('workspace').hidden=true;notice(messages.CLOUD_BRIDGE_NOT_CONFIGURED);return;}snapshot=await call('state');el('pair-panel').hidden=true;el('workspace').hidden=false;display();timer=setTimeout(refresh,snapshot.jobs.some(j=>j.state.endsWith('PENDING'))?4000:20000);}catch(e){if(e.status===401){el('pair-panel').hidden=false;el('workspace').hidden=true;}notice(e.message);}}
-async function send(body){if(busy)return;busy=true;try{if(!pending){pending=body;localStorage.setItem(pendingKey,JSON.stringify(pending));}display();await call('operator',pending);localStorage.removeItem(pendingKey);pending=null;notice('Tersimpan pada cloud.');}catch(e){notice(e.message);if(e.status>=400&&e.status<500&&e.code!=='BUSY_RETRY_SAME_ID'){localStorage.removeItem(pendingKey);pending=null;}}finally{busy=false;await refresh();}}
+async function refresh(){clearTimeout(timer);if(document.hidden)return;if(refreshing){refreshAgain=true;return;}refreshing=true;try{const caps=await call('capabilities');reportEnabled=caps.reportsEnabled===true;if(!caps.enabled){el('workspace').hidden=true;notice(messages.CLOUD_BRIDGE_NOT_CONFIGURED);return;}snapshot=await call('state');el('pair-panel').hidden=true;el('workspace').hidden=false;display();timer=setTimeout(refresh,snapshot.jobs.some(j=>j.state.endsWith('PENDING'))?4000:20000);}catch(e){if(e.status===401){el('pair-panel').hidden=false;el('workspace').hidden=true;}notice(e.message);}finally{refreshing=false;if(refreshAgain){refreshAgain=false;refresh();}}}
+async function send(body){if(busy)return;busy=true;try{if(!pending){pending=body;localStorage.setItem(pendingKey,JSON.stringify(pending));}display();await call('operator',pending);if(pending.action==='quality')window.PortalDraft?.remove('quality:'+pending.jobId+':'+pending.revision);if(pending.action==='timing')window.PortalDraft?.remove('time:'+pending.jobId+':'+pending.revision);localStorage.removeItem(pendingKey);pending=null;notice('Tersimpan pada cloud.');}catch(e){notice(e.message);if(e.status>=400&&e.status<500&&e.code!=='BUSY_RETRY_SAME_ID'){localStorage.removeItem(pendingKey);pending=null;}}finally{busy=false;await refresh();}}
 function act(action,extra={}){return send({action,requestId:crypto.randomUUID(),jobId:current?.id,revision:current?.revision,...extra});}
+
+function operatorDraftKey(){return 'operators:'+JSON.stringify(selected);}
+function preserveSessionDraft(){
+ if(!current)return;
+ if(!el('quality').hidden)window.PortalDraft?.set('quality:'+current.id+':'+current.revision,Object.fromEntries(['ok','repair','reject','issue','classification','problem','action','pic'].map(k=>[k,el(k).value])));
+ for(const j of snapshot?.jobs||[]){const d=timeDrafts.get(j.id);if(d)window.PortalDraft?.set('time:'+j.id+':'+j.revision,{...d,confirmed:false});}
+}
+document.addEventListener('input',preserveSessionDraft);
+document.addEventListener('change',preserveSessionDraft);
+el('operators').addEventListener('change',()=>window.PortalDraft?.set(operatorDraftKey(),[...el('operators').querySelectorAll('input:checked')].map(x=>x.value)));
+window.addEventListener('pagehide',()=>{preserveSessionDraft();clearTimeout(timer);});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){clearTimeout(timer);preserveSessionDraft();}else refresh();});
 el('refresh').onclick=refresh;el('retry').onclick=()=>send(pending);
 for(const id of ['history-date','history-shift','history-status','history-search'])el(id).oninput=renderHistory;
 el('pair').onclick=async()=>{try{await call('pair',{code:el('pair-code').value.trim()});el('pair-code').value='';notice('Tablet terpasang.');await refresh();}catch(e){notice(e.message);}};
@@ -93,4 +106,4 @@ el('close').onclick=()=>{const reason=prompt('Alasan menutup sesi untuk pemeriks
 el('save-quality').onclick=()=>act('quality',{quality:Object.fromEntries(['ok','repair','reject','issue','classification','problem','action','pic'].map(k=>[k,el(k).value.trim()]))});
 el('issue').onchange=()=>{el('issue-fields').hidden=el('issue').value!=='Ada';};
 el('export').onclick=()=>{const url=URL.createObjectURL(new Blob([JSON.stringify(snapshot,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='champer-cloud-pilot.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),5000);};
-(async()=>{try{const r=await andonFetch('/api/master',{cache:'no-store'}),m=await r.json();if(m.ready&&m.source==='live'){for(const name of m.mapping.LINE_99.operators.filter(x=>x!=='__other_option__')){const label=document.createElement('label');label.className='check';const input=document.createElement('input');input.type='checkbox';input.value=name;label.append(input,document.createTextNode(name));el('operators').append(label);}masterReady=true;}}catch{}await refresh();})();
+(async()=>{try{const r=await andonFetch('/api/master',{cache:'no-store'}),m=await r.json();if(m.ready&&m.source==='live'){for(const name of m.mapping.LINE_99.operators.filter(x=>x!=='__other_option__')){const label=document.createElement('label');label.className='check';const input=document.createElement('input');input.type='checkbox';input.value=name;input.checked=(window.PortalDraft?.get(operatorDraftKey())||[]).includes(name);label.append(input,document.createTextNode(name));el('operators').append(label);}masterReady=true;}}catch{}await refresh();})();

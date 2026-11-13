@@ -4,8 +4,11 @@ Pintu masuk `/portal.html`. URL lama `/`, `/leader`, `/pekerjaan.html`, `/champe
 
 ## Batas perubahan
 
-- Menu menampung halaman existing dalam iframe same-origin; cookie tablet, local/session storage, ID permintaan dan ID laporan tetap dipakai. Satu iframe leader dibagi oleh target dan pemeriksaan. Berpindah menu tidak memuat ulang frame sehingga draft tetap ada.
-- Tautan konteks baru meminta konfirmasi jika ada isian belum disimpan. Sesi Champer aktif dipertahankan; tidak dibatalkan oleh navigasi. Target yang diklik tetap disimpan oleh handler existing sebelum navigasi portal.
+- Menu memakai navigasi dokumen langsung, tanpa iframe. Halaman hanya memuat skripnya sendiri. Sidebar dan gaya visual bersama berlaku pada leader, pekerjaan, sesi, monitor live dan latihan. Form LKH tetap halaman terpisah.
+- Perpindahan menu menghentikan halaman sebelumnya; tidak ada aplikasi tersembunyi yang terus melakukan polling. Monitor Live melakukan GET telemetry setiap 5 detik ketika terlihat; sesi berhenti polling saat tab tersembunyi. Backend/kolektor tetap bekerja independen.
+- Cookie pairing, ID laporan, ID permintaan pending dan penyimpanan server tidak diganti. Navigasi/reload membaca ulang status server; tidak mengirim Start/End otomatis.
+- Draf target disimpan di sessionStorage dengan tanggal/shift/line dan versi server. Draf versi lama tidak diterapkan ke target versi baru. Kualitas/jam aktual memakai ID sesi dan revisi; konfirmasi jam harus dicentang lagi setelah kembali. Revisi leader memakai ID laporan dan hash. Nama leader serta pilihan operator juga dipertahankan pada tab yang sama. Token/kode pairing tidak ikut disimpan sebagai draf.
+- Tidak ada penghapusan atau migrasi data. Backend/API dan alur LKH manual tetap sama.
 - Tidak mengubah endpoint mutasi, mesin status sesi, penerima Apps Script, master spreadsheet, bridge lokal, kolektor, VB, Takebishi, atau PLC.
 - Champer tetap `LINE_99` / `AUTO CHAMPER`. Total Welding mencakup Line 1–8, tidak termasuk Line 99. Line 99 dapat dipilih sendiri.
 
@@ -22,7 +25,7 @@ Pintu masuk `/portal.html`. URL lama `/`, `/leader`, `/pekerjaan.html`, `/champe
 ## Verifikasi
 
 `tests/portal-production.cjs`: batas rentang, deduplikasi, pemisahan Line 99, data tidak lengkap, allowlist navigasi.
-`scripts/portal-production-browser.cjs`: seluruh API dimock terisolasi, tidak memanggil PLC/cloud. Mencakup target→pemilihan→pairing→prepare/start/end, ID dan draft tetap, tampilan TV/telepon, form lama, laporan gagal parsial.
+`scripts/portal-native-browser.cjs` (juga dipanggil oleh `scripts/portal-production-browser.cjs`): seluruh API dimock terisolasi, tidak memanggil PLC/cloud. Mencakup target→pairing→prepare/start/end→jam aktual→kualitas→laporan→revisi leader/TF, retry Start dengan ID sama, draft, pergantian halaman tanpa frame, penghentian polling Live, tampilan TV/telepon dan form lama. Bukti tersimpan di `verification/portal-native-browser.json`.
 Seluruh pengujian backend existing tetap dijalankan. Uji pada produksi hanya baca dan navigasi; tidak membuat target/laporan/TF Slip uji baru.
 
 ## Panduan awal pengguna
@@ -32,4 +35,12 @@ Seluruh pengujian backend existing tetap dijalankan. Uji pada produksi hanya bac
 3. Monitor Live Champer untuk counter mentah dan waktu penerimaan. Ringkasan/Performa untuk hasil laporan dan target; klik Muat hasil periode.
 4. Form LKH dibuka melalui tombol atas dan tetap alur lama untuk mesin lain.
 
-Rollback tampilan: tetap gunakan URL lama. Jika deployment bermasalah, pulihkan deployment produksi sebelumnya melalui Vercel; tidak perlu migrasi data atau pemulihan PLC.
+URL lama kini membuka halaman langsung dengan navigasi portal; tautan lama tetap kompatibel. Jika deployment bermasalah, pulihkan deployment produksi sebelumnya melalui Vercel; tidak perlu migrasi data atau pemulihan PLC.
+
+## Uji lapangan setelah penerbitan
+
+1. Buka portal dan Monitor Live Champer, pasangkan browser bila diminta. Halaman ini hanya mengambil telemetry cloud yang sudah dikirim penghubung.
+2. Pastikan status penghubung dan waktu penerimaan terbaru. Nilai lama tetap dilabeli histori; jangan anggap UNKNOWN sebagai nol.
+3. Saat operator/leader menjalankan mesin sesuai prosedur lapangan, amati perubahan nilai. Bukti jeda hanya PC DDE → cloud → layar; tidak mengukur sensor → PC.
+4. Dengan target UJI Line 99, lanjutkan pekerjaan → Start → End → jam aktual/lembur → kualitas/kendala → laporan → pemeriksaan leader → TF Slip. Tidak mengubah atau mereset PLC.
+5. Filter ringkasan ke tanggal/shift dan Line 99; muat hasil. Total Welding Line 1–8 tetap tidak memasukkan data uji.
