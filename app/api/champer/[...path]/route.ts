@@ -1,6 +1,7 @@
 import {ChamperError,fail,operatorAction,poll,result,view,Target,Evidence,validateTarget,uuid} from '@/lib/champer-core';
 import {redisStore} from '@/lib/champer-store';
 import {telemetryStore,validateTelemetry} from '@/lib/champer-telemetry';
+import {portalPreview,previewBlocked} from '@/lib/portal-preview';
 import {equal,issueCookie,validCookie} from '@/lib/champer-auth';
 import {callReceiver,receiverMode,receiverReady} from '@/lib/receiver';
 import {prepareReport,reserveReport,confirmReport,ReportInput} from '@/lib/champer-report';
@@ -28,6 +29,12 @@ async function selectedTarget(input:Record<string,unknown>){
  if(!mapping?.mesin_part_mapping?.['AUTO CHAMPER']?.options?.includes(t.part)||!Array.isArray(input.operators)||!(input.operators as unknown[]).every(o=>typeof o==='string'&&o!=='__other_option__'&&mapping.operators.includes(o)))fail('MASTER_CHANGED_RELOAD');
 }
 async function handle(r:Request){
+ if(portalPreview()){
+  const path=new URL(r.url).pathname.split('/').at(-1);
+  if(r.method==='GET'&&path==='capabilities')return Response.json({enabled:false,preview:true,plcWrites:false},{headers});
+  if(r.method==='GET'&&path==='state')return Response.json({jobs:[],preview:true},{headers});
+  return previewBlocked();
+ }
  try{
   const path=new URL(r.url).pathname.split('/').at(-1);
   if(r.method==='GET'&&path==='capabilities')return Response.json({enabled:!!ready(),machine:'AUTO_CHAMPER',mode:'PLC_PILOT',reportsEnabled:ready()&&process.env.CHAMPER_REPORT_ENABLED==='1',plcWrites:false,productionUsable:false},{headers});

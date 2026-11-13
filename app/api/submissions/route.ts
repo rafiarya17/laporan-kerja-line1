@@ -1,9 +1,11 @@
 import type { Submission } from "@/lib/lkh";
+import {portalPreview,previewBlocked} from '@/lib/portal-preview';
 import { submitReport } from "@/lib/submission-service";
 import { callReceiver, receiverMode, receiverReady } from "@/lib/receiver";
 
 export const maxDuration = 90;
 export async function POST(request: Request) {
+  if(portalPreview())return previewBlocked();
   const fail = (error: string, status: number) => Response.json({ ok: false, error }, { status, headers: { "Cache-Control": "no-store" } });
   const origin = request.headers.get("origin");
   if (!origin || origin !== new URL(request.url).origin) return fail("Asal pengiriman tidak valid.", 403);

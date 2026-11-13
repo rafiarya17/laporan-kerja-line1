@@ -1,8 +1,10 @@
 import snapshot from "@/constants/formMapping.json";
+import {portalPreview,previewMaster,previewHeaders} from '@/lib/portal-preview';
 import type { Master } from "@/lib/lkh";
 import { callReceiver, receiverMode, receiverReady } from "@/lib/receiver";
 
 export async function GET() {
+  if(portalPreview())return Response.json(previewMaster(),{headers:previewHeaders});
   if (receiverReady()) {
     try {
       const result = await callReceiver("master", {});

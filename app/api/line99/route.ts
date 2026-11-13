@@ -1,4 +1,5 @@
 import { callReceiver, receiverMode, receiverReady } from "@/lib/receiver";
+import {portalPreview,previewBlocked} from '@/lib/portal-preview';
 
 export const maxDuration = 120;
 const allowedOrigins = new Set([
@@ -24,6 +25,7 @@ export async function OPTIONS(request: Request) {
 }
 
 export async function POST(request: Request) {
+  if(portalPreview())return previewBlocked();
   const headers = responseHeaders(request);
   const fail = (error: string, status: number) => Response.json({ ok: false, error }, { status, headers });
   const origin = request.headers.get("origin");
