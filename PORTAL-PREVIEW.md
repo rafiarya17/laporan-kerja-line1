@@ -1,4 +1,4 @@
-# Portal terpadu — pratinjau 0.1
+# Portal terpadu — pratinjau 0.2
 
 Dasar: commit b83f888 (monitor live Champer), branch feat/portal-preview-20261113.
 Pintu masuk: `/portal-preview.html`.
@@ -10,7 +10,10 @@ Pintu masuk: `/portal-preview.html`.
 - Detail pilot dengan contoh perubahan counter, MTC, dandori dan kehilangan pembaruan. Counter terakhir saat putus diberi label histori; bukan nol.
 - Satu navigasi portal dengan halaman existing tertanam, mempertahankan state halaman saat berpindah menu. Target leader dan laporan contoh dapat dibaca; tindakan produksi ditolak.
 - Pekerjaan operator → target contoh → sesi Start/End simulasi → input hasil → riwayat browser. Mesin lain menuju form lama; belum otomatis mengisi pilihan form.
-- Form lama mempertahankan UI. Master preview memakai nama operator contoh; pengiriman tidak diaktifkan.
+- Form LKH dibuka sebagai halaman terpisah melalui tautan di bagian atas, bukan menu sidebar atau iframe. Master preview memakai nama operator contoh; pengiriman tidak diaktifkan.
+- Monitor Live menampilkan aktual bruto dan target OK per shift atau sesi berjalan. Persentase bruto/target bersifat indikatif; hasil OK yang dilaporkan ditampilkan terpisah. Pergantian sesi mengubah titik awal perhitungan, tidak mereset counter kumulatif PLC.
+- Mode TV landscape memuat maksimal enam mesin per layar, dengan pergantian halaman otomatis setiap 15 detik dan tombol layar penuh. Diuji pada 1920×1080 dan 1366×768.
+- Contoh pergantian shift/sesi, kenaikan hitungan dan putus data tersedia. Data yang tidak tersedia ditampilkan sebagai tanda pisah; histori diberi label.
 
 ## Batas isolasi
 
@@ -23,7 +26,7 @@ Angka dashboard contoh bukan hasil sesi simulasi browser: keduanya sengaja diber
 ## Uji lokal
 
 PowerShell di repo: set `$env:ANDON_PORTAL_PREVIEW='1'`, lalu `node node_modules/next/dist/bin/next dev --webpack --hostname 127.0.0.1 --port 4357`.
-Browser checks: `scripts/portal-preview-browser.cjs`; gunakan `PLAYWRIGHT_MODULE` bila runtime tersedia terpisah. Test menggunakan API preview lokal; tidak mengoperasikan PLC atau mengirim laporan nyata.
+Browser checks: `scripts/portal-preview-browser.cjs` dan `scripts/portal-monitor-browser.cjs`; gunakan `PLAYWRIGHT_MODULE` bila runtime tersedia terpisah. Test menggunakan API preview lokal; tidak mengoperasikan PLC atau mengirim laporan nyata. Perhitungan contoh diuji di `tests/portal-monitor.cjs`.
 
 ## Panduan pengguna bertahap
 
@@ -33,6 +36,9 @@ Browser checks: `scripts/portal-preview-browser.cjs`; gunakan `PLAYWRIGHT_MODULE
 4. Pilih Line 1 → AUTO CHAMPER. Tetap Belum terintegrasi; alur form lama.
 5. Target leader → Hasil & pemeriksaan → Pekerjaan operator: semua di portal yang sama.
 6. Dari pekerjaan, pilih Line 99 dan target contoh. Siapkan, Mulai, Tambah 12, Akhiri, isi kualitas, simpan simulasi. Riwayat tetap terlihat setelah berganti menu / refresh.
-7. Form produksi dapat ditinjau; pengiriman nyata belum tersedia di preview.
+7. Buka form LKH melalui tautan atas: berpindah ke halaman form tersendiri; pengiriman nyata belum tersedia di preview.
+8. Monitor Live → pilih per shift/sesi berjalan → Mode TV. Gunakan filter line/mesin, tombol halaman atau rotasi otomatis.
+
+Referensi Looker Studio halaman 5 belum dapat diakses pada sesi pengerjaan; desain ini tidak mengklaim menyalin visual halaman tersebut.
 
 Belum diterbitkan ke domain produksi. Preview perlu tautan berbagi Vercel jika perlindungan autentikasi aktif.
