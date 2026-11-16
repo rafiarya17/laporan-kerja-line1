@@ -37,6 +37,21 @@ export function processInterval(form: LkhForm): { start: number; end: number } |
   if (end < start && form.shift === "2") end += 86400000;
   return { start, end };
 }
+
+export function submissionDateForConfirmation(form: Pick<LkhForm, "tanggal" | "shift">, now: number): string | null {
+  const submissionDate = new Date(now + 7 * 3600000).toISOString().slice(0, 10);
+  if (!validDate(form.tanggal) || form.tanggal === submissionDate) return null;
+
+  const productionDay = new Date(form.tanggal + "T00:00:00Z");
+  const nextProductionDay = new Date(productionDay.getTime() + 86400000).toISOString().slice(0, 10);
+  const shiftTwoEndsAt = Date.parse(nextProductionDay + "T07:30:00+07:00");
+
+  // CONFIG_SHIFT: Shift 2 starts Sunday through Friday and ends at 07:30 WIB.
+  if (form.shift === "2" && productionDay.getUTCDay() !== 6 &&
+      submissionDate === nextProductionDay && now <= shiftTwoEndsAt) return null;
+  return submissionDate;
+}
+
 export function validateSubmission(value: unknown, master: Master, now = Date.now()): string[] {
   if (!value || typeof value !== "object") return ["Format laporan tidak valid."];
   const p = value as Submission;

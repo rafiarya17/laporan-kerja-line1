@@ -5,7 +5,7 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import Image from "next/image";
 import MAPPING_FORM from "../constants/formMapping.json";
 
-import { initialForm, resetForContext, validateSubmission } from "@/lib/lkh";
+import { initialForm, resetForContext, submissionDateForConfirmation, validateSubmission } from "@/lib/lkh";
 import type { Master, Submission, Receipt } from "@/lib/lkh";
 
 const SNAPSHOT = MAPPING_FORM as Master;
@@ -147,8 +147,17 @@ export default function LaporanKerjaForm() {
     e.preventDefault();
     if (inFlight.current || (!connection.ready && !pending) || !storageAvailable) return;
     const payload: Submission = pending || {id: (lineSelected === "LINE_99" ? "LKH99-" : "LKH-") + crypto.randomUUID(), line: lineSelected, form: formData};
-    const errors = pending ? [] : validateSubmission(payload, mapping);
+    const now = Date.now();
+    const errors = pending ? [] : validateSubmission(payload, mapping, now);
     if (errors.length) { setToast({type: "error", msg: errors.join(" ")}); window.scrollTo({top: 0, behavior: "smooth"}); return; }
+    if (!pending) {
+      const submissionDate = submissionDateForConfirmation(payload.form, now);
+      if (submissionDate) {
+        const displayDate = (date: string) => date.split("-").reverse().join("/");
+        const message = `Tanggal produksi ${displayDate(payload.form.tanggal)} (Shift ${payload.form.shift}), tanggal kirim ${displayDate(submissionDate)} WIB.\n\nLanjut kirim dengan tanggal produksi ini? Pilih Batal untuk memeriksa kembali.`;
+        if (!window.confirm(message)) return;
+      }
+    }
     try { localStorage.setItem(PENDING_KEY, JSON.stringify(payload)); }
     catch { setStorageAvailable(false); setToast({type: "error", msg: "Aktifkan penyimpanan browser sebelum mengirim agar ID laporan aman saat koneksi terputus."}); return; }
     inFlight.current = true; setIsSubmitting(true); setPending(payload); setToast(null);
