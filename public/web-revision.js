@@ -3,19 +3,20 @@
 let webRevision=null,webRevisionEpoch=0;
 const webRevisionDialog=document.createElement('dialog');
 webRevisionDialog.id='webRevisionDialog';webRevisionDialog.style.width='min(760px,calc(100vw - 24px))';
-webRevisionDialog.innerHTML='<div class="dialoghead"><h2>Revisi laporan</h2><button type="button" data-dismiss aria-label="Tutup revisi">Tutup</button></div><p data-context></p><p class="small">Simpan koreksi pada ID laporan yang sama. Pembaruan TF Slip diproses otomatis. Nama pengoreksi dan alasan dicatat.</p><form><fieldset data-fields class="fields"></fieldset><label>Alasan koreksi<textarea name="reason" required minlength="5" maxlength="500"></textarea></label><p data-feedback role="status" aria-live="polite"></p><button class="primary" type="submit">Simpan revisi</button></form>';
+webRevisionDialog.innerHTML='<div class="dialoghead"><h2>Revisi laporan</h2><button type="button" data-dismiss aria-label="Tutup revisi">Tutup</button></div><p data-context></p><p class="small">Simpan koreksi pada ID laporan yang sama. Pembaruan TF Slip diproses otomatis. Nama pengoreksi dan alasan dicatat.</p><form><label>Nama leader / pengoreksi<input name="revisionLeader" required minlength="2" maxlength="80" autocomplete="name" placeholder="Isi nama pemeriksa"></label><fieldset data-fields class="fields"></fieldset><label>Alasan koreksi<textarea name="reason" required minlength="5" maxlength="500"></textarea></label><p data-feedback role="status" aria-live="polite"></p><button class="primary" type="submit">Simpan revisi</button></form>';
 document.body.append(webRevisionDialog);
 const webRevisionForm=webRevisionDialog.querySelector('form'),webRevisionFields=webRevisionDialog.querySelector('[data-fields]'),webRevisionFeedback=webRevisionDialog.querySelector('[data-feedback]');
 webRevisionDialog.querySelector('[data-dismiss]').onclick=()=>webRevisionDialog.close();
 webRevisionDialog.addEventListener('close',()=>{webRevisionEpoch++;webRevision=null;});
 async function openWebRevision(id){
  const r=data?.reports.find(x=>x.id===id);if(!r||!data.revisionEnabled)return;
- try{actor();}catch(e){notify(e.message,true);return;}
  if(pendingReport(id)){notify('Masih ada permintaan untuk laporan ini. Muat ulang untuk melihat hasilnya.',true);return;}
  const epoch=++webRevisionEpoch;webRevision=null;
+ webRevisionForm.elements.revisionLeader.value=$('leader').value.trim();
  webRevisionDialog.querySelector('[data-context]').textContent=r.line.replace('_',' ')+' · '+r.machine+' · '+r.part+' · '+r.id;
  webRevisionFields.replaceChildren();webRevisionFields.disabled=true;webRevisionForm.querySelector('[type=submit]').disabled=true;webRevisionForm.elements.reason.value='';webRevisionFeedback.textContent='Mengambil versi terbaru laporan…';
  webRevisionDialog.showModal();
+ if(!webRevisionForm.elements.revisionLeader.value)webRevisionForm.elements.revisionLeader.focus();
  try{
  const response=await api({action:'revisionDetail',payload:{id:r.id,line:r.line}});
  if(epoch!==webRevisionEpoch||!webRevisionDialog.open)return;
@@ -38,10 +39,14 @@ async function openWebRevision(id){
 }
 webRevisionForm.onsubmit=e=>{
  e.preventDefault();if(!webRevision||!webRevisionForm.reportValidity())return;
+ const leaderName=webRevisionForm.elements.revisionLeader.value.trim();
+ if(leaderName.length<2){webRevisionFeedback.textContent='Isi nama leader / pengoreksi minimal 2 karakter.';webRevisionForm.elements.revisionLeader.focus();return;}
  const chosenMachine=webRevisionForm.elements.namedItem('machine'),chosenPart=webRevisionForm.elements.namedItem('part');if(!chosenMachine?.value||!chosenPart?.value){webRevisionFeedback.textContent='Pilih mesin dan part terlebih dahulu.';return;}
  const fields={};for(const f of webRevision.fields)fields[f.key]=webRevisionForm.elements.namedItem(f.key).value;
  const reason=webRevisionForm.elements.reason.value.trim();
  if(!confirm('Simpan revisi laporan ini?\n'+webRevision.id+'\nAlasan: '+reason+'\nTF Slip akan diperbarui pada laporan yang sama.'))return;
+ $('leader').value=leaderName;
+ window.PortalDraft?.set('leader-name',leaderName);
  startOperation('reviseProduction',{id:webRevision.id,line:webRevision.line,expectedHash:webRevision.hash,fields,reason});
 };
 
