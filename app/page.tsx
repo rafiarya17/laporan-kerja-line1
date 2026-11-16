@@ -232,7 +232,6 @@ export default function LaporanKerjaForm() {
           <p className="text-blue-100 mt-2 font-medium tracking-wide">Production System — Berlindo</p>
         </div>
 
-        <a href="/portal.html" className="inline-block text-white underline mb-4">← Portal Digital Andon</a>
         {/* STEP INDICATOR */}
         <div className="flex items-center justify-center gap-2 mb-6">
           {[
