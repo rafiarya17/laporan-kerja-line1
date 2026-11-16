@@ -35,6 +35,7 @@ const formatDuration = (start: string, end: string): string | null => {
 
 export default function LaporanKerjaForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submissionSlow, setSubmissionSlow] = useState(false);
   const [lineSelected, setLineSelected] = useState<string>("LINE_1");
   const [formData, setFormData] = useState(initialForm);
   const [toast, setToast] = useState<{ type: "success" | "error"; msg: string } | null>(null);
@@ -160,7 +161,12 @@ export default function LaporanKerjaForm() {
     }
     try { localStorage.setItem(PENDING_KEY, JSON.stringify(payload)); }
     catch { setStorageAvailable(false); setToast({type: "error", msg: "Aktifkan penyimpanan browser sebelum mengirim agar ID laporan aman saat koneksi terputus."}); return; }
-    inFlight.current = true; setIsSubmitting(true); setPending(payload); setToast(null);
+    inFlight.current = true;
+    setSubmissionSlow(false);
+    setIsSubmitting(true);
+    setPending(payload);
+    setToast(null);
+    const slowTimer = window.setTimeout(() => setSubmissionSlow(true), 10000);
     try {
       const response = await fetch("/api/submissions", { method: "POST", headers: {"Content-Type": "application/json", "X-LKH-Retry": pending ? "1" : "0"}, body: JSON.stringify(payload), signal: AbortSignal.timeout(80000) });
       const result = await response.json().catch(() => { throw Error("Balasan penerima belum terbaca. Simpan ID laporan ini dan coba kirim ulang dengan ID yang sama."); });
@@ -177,7 +183,12 @@ export default function LaporanKerjaForm() {
     } catch (error) {
       const networkError = error instanceof Error && ["TimeoutError", "AbortError", "TypeError"].includes(error.name);
       setToast({type: "error", msg: networkError ? "Koneksi atau waktu tunggu terputus. Laporan mungkin masih diproses. Coba kirim ulang dengan ID yang sama." : error instanceof Error ? error.message : "Belum ada konfirmasi. Coba ulang dengan ID laporan yang sama."});
-    } finally { inFlight.current = false; setIsSubmitting(false); }
+    } finally {
+      window.clearTimeout(slowTimer);
+      inFlight.current = false;
+      setIsSubmitting(false);
+      setSubmissionSlow(false);
+    }
   };
 
   // --- Progress step ---
@@ -221,7 +232,7 @@ export default function LaporanKerjaForm() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 font-sans pb-28">
+    <div className="min-h-screen bg-slate-100 font-sans pb-52 sm:pb-36">
       {/* HEADER */}
       <div className="bg-gradient-to-br from-blue-900 via-blue-800 to-blue-600 h-56 w-full absolute top-0 z-0 rounded-b-[2.5rem] shadow-xl"></div>
 
@@ -283,7 +294,7 @@ export default function LaporanKerjaForm() {
           {!["live", "sql-master", "sql-preview"].includes(connection.source) && <p className="text-sm text-amber-800">Dropdown menggunakan salinan master. Sinkronisasi langsung tersedia setelah penerima dihubungkan.</p>}
           {!storageAvailable && <p className="text-sm text-red-700">Penyimpanan browser tidak tersedia. Aktifkan sebelum mengirim laporan.</p>}
           {draftAvailable && !pending && <button type="button" onClick={restoreDraft} className="font-bold text-blue-800 underline">Pulihkan draft sebelumnya</button>}
-          {pending && <p className="text-sm text-amber-900">Menunggu konfirmasi: <strong>{pending.id}</strong>. Isian dikunci agar kirim ulang memakai laporan yang sama. Gunakan tombol Coba Kirim Ulang di bawah.</p>}
+          {pending && <p className="text-sm text-amber-900 break-all">ID laporan: <strong>{pending.id}</strong>. {isSubmitting ? "Sedang menunggu konfirmasi penyimpanan." : "Gunakan Coba Kirim Ulang untuk melanjutkan dengan ID yang sama."}</p>}
           {receipt && <p className="text-sm break-all">{pending && pending.id !== receipt.id ? "Bukti laporan sebelumnya (bukan laporan yang sedang menunggu): " : "Bukti penerimaan terakhir: "}<strong>{receipt.id}</strong> — {receipt.state === "SQL_SAVED" && receipt.mode === "test" ? "DATA UJI TERSIMPAN DI SQL" : receipt.state === "SQL_SAVED" ? "TERSIMPAN DI SQL — PENERUSAN OTOMATIS, BELUM KONFIRMASI TF SLIP" : receipt.state === "TEST_SAVED" ? "DATA UJI TERSIMPAN" : receipt.id.startsWith("LKH99-") ? "UJI TERSIMPAN / ANTREAN VERIFIKASI LEADER, BELUM TERBIT TF SLIP" : "TERSIMPAN / MASUK ANTREAN, BELUM KONFIRMASI TF SLIP"}</p>}
         </div>
         {lineSelected === "LINE_99" && <div className="rounded-2xl border border-amber-300 bg-amber-50 p-5 mb-6 text-amber-950" role="note">
@@ -699,15 +710,28 @@ export default function LaporanKerjaForm() {
           </fieldset>
           {/* STICKY SUBMIT */}
           <div className="fixed bottom-0 left-0 w-full bg-white/90 backdrop-blur-md border-t border-gray-200 p-4 z-50 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+            <div role="status" aria-live="polite" aria-atomic="true" className="max-w-4xl mx-auto">
+              {isSubmitting ? (
+                <div className="flex items-center gap-3 mb-3 rounded-lg bg-blue-50 p-3 text-sm text-blue-950">
+                  <span aria-hidden="true" className="size-5 shrink-0 rounded-full border-2 border-blue-200 border-t-blue-700 motion-safe:animate-spin" />
+                  <div>
+                    <p className="font-bold">Mengirim laporan… Mohon tunggu</p>
+                    <p>{submissionSlow ? "Konfirmasi membutuhkan waktu lebih lama. Tetap buka halaman ini." : "Sedang menunggu konfirmasi penyimpanan. Tetap buka halaman ini."}</p>
+                  </div>
+                </div>
+              ) : pending ? (
+                <p className="mb-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-950">Penyimpanan belum terkonfirmasi. Pilih <strong>Coba Kirim Ulang</strong> untuk melanjutkan laporan yang sama.</p>
+              ) : null}
+            </div>
             <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
               <div className="hidden sm:block text-xs text-gray-500 leading-tight">
                 <span className="font-bold text-blue-800">{lineSelected.replace("_", " ")}</span>
                 {isLine8 && formData.jenisAktivitas && <> • {formData.jenisAktivitas}</>}
                 {formData.operator.length > 0 && <> • {formData.operator.length} operator</>}
               </div>
-              <button type="submit" disabled={isSubmitting || (!connection.ready && !pending) || !storageAvailable}
+              <button type="submit" aria-busy={isSubmitting} disabled={isSubmitting || (!connection.ready && !pending) || !storageAvailable}
                 className="w-full sm:w-auto px-10 py-3.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-extrabold text-lg shadow-lg shadow-orange-200 transition-all disabled:opacity-70 disabled:cursor-not-allowed">
-                {isSubmitting ? "Mengirim Data..." : (pending ? "Coba Kirim Ulang" : connection.mode === "test" ? "Kirim Data Uji" : "Kirim Laporan")}
+                {isSubmitting ? "Sedang mengirim…" : (pending ? "Coba Kirim Ulang" : connection.mode === "test" ? "Kirim Data Uji" : "Kirim Laporan")}
               </button>
             </div>
           </div>
