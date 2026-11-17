@@ -38,6 +38,35 @@ export function processInterval(form: LkhForm): { start: number; end: number } |
   return { start, end };
 }
 
+// CONFIG_SHIFT production windows in WIB, inclusive at the end for completed work.
+const SHIFT_ONE_START = 7 * 60 + 30;
+const SHIFT_TWO_START = 19 * 60 + 30;
+const MINUTES_PER_DAY = 24 * 60;
+const MINUTE_MS = 60_000;
+
+export function productionTimeError(form: LkhForm, now?: number): string | null {
+  const interval = processInterval(form);
+  if (!interval) return "Isi tanggal, shift, serta jam mulai dan selesai proses yang valid.";
+
+  const day = Date.parse(form.tanggal + "T00:00:00+07:00");
+  const shiftOneEndsAt = day + SHIFT_TWO_START * MINUTE_MS;
+  const night = form.shift === "2";
+  const shiftStart = day + (night ? SHIFT_TWO_START : SHIFT_ONE_START) * MINUTE_MS;
+  const shiftEnd = day + (night ? MINUTES_PER_DAY + SHIFT_ONE_START : SHIFT_TWO_START) * MINUTE_MS;
+
+  if (interval.end <= interval.start) return "Jam selesai harus setelah jam mulai proses.";
+  if (interval.start < shiftStart || interval.end > shiftEnd) {
+    if (night && form.jamMulaiProses === "16:30" && interval.end === shiftOneEndsAt) {
+      return "Jam 16.30–19.30 WIB masuk lembur Shift 1. Pilih Shift 1 dan Lembur: Ya.";
+    }
+    return night
+      ? "Jam proses harus berada dalam Shift 2: 19.30–07.30 WIB keesokan harinya. Periksa shift atau pisahkan laporan jika pekerjaan melintasi pergantian shift."
+      : "Jam proses harus berada dalam Shift 1: 07.30–19.30 WIB. Periksa shift atau pisahkan laporan jika pekerjaan melintasi pergantian shift.";
+  }
+  if (now !== undefined && interval.end > now) return "Jam selesai proses belum tercapai. Kirim setelah pekerjaan selesai.";
+  return null;
+}
+
 export function submissionDateForConfirmation(form: Pick<LkhForm, "tanggal" | "shift">, now: number): string | null {
   const submissionDate = new Date(now + 7 * 3600000).toISOString().slice(0, 10);
   if (!validDate(form.tanggal) || form.tanggal === submissionDate) return null;
@@ -88,8 +117,8 @@ export function validateSubmission(value: unknown, master: Master, now = Date.no
     if (!["MULAI BARU", "LANJUTAN SHIFT SEBELUMNYA"].includes(f.tahapDandori) || !["SELESAI - SIAP PRODUKSI", "BELUM SELESAI - LANJUT SHIFT BERIKUTNYA"].includes(f.hasilDandori) || !f.catatanDandori.trim()) errors.push("Lengkapi tahap dan hasil dandori.");
   } else {
     const interval = processInterval(f);
-    if (!interval || interval.end <= interval.start || interval.end - interval.start > 16 * 3600000) errors.push("Periksa jam proses: durasi harus lebih dari 0 dan maksimal 16 jam.");
-    else if (interval.end > now + 300000) errors.push("Jam selesai belum berlangsung. Periksa tanggal produksi dan shift.");
+    const timeError = productionTimeError(f, now);
+    if (timeError) errors.push(timeError);
     for (const k of ["qtyOk", "qtyRepair", "qtyReject"] as const) {
       if (!/^\d+(\.\d+)?$/.test(f[k]) || !Number.isFinite(Number(f[k])) || (p.line !== "LINE_8" && !Number.isSafeInteger(Number(f[k]))) || Number(f[k]) > 100000000) errors.push("Qty harus berupa angka nonnegatif dengan satuan yang sesuai.");
     }

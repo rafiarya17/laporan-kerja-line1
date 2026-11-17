@@ -5,7 +5,7 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import Image from "next/image";
 import MAPPING_FORM from "../constants/formMapping.json";
 
-import { initialForm, resetForContext, submissionDateForConfirmation, validateSubmission } from "@/lib/lkh";
+import { initialForm, productionTimeError, resetForContext, submissionDateForConfirmation, validateSubmission } from "@/lib/lkh";
 import type { Master, Submission, Receipt } from "@/lib/lkh";
 
 const SNAPSHOT = MAPPING_FORM as Master;
@@ -103,6 +103,9 @@ export default function LaporanKerjaForm() {
   const showDandori = isLine8 && formData.jenisAktivitas === "DANDORI";
 
   // --- Durasi (live) ---
+  const processTimeWarning = showProduction && formData.tanggal && formData.shift && formData.jamMulaiProses && formData.jamSelesaiProses
+    ? productionTimeError(formData)
+    : null;
   const durasiProses = formatDuration(formData.jamMulaiProses, formData.jamSelesaiProses);
   const durasiKendala = formatDuration(formData.jamMulaiKendala, formData.jamSelesaiKendala);
 
@@ -471,16 +474,21 @@ export default function LaporanKerjaForm() {
               <div className="grid grid-cols-2 gap-6 mb-4">
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-gray-700">Jam Mulai <span className="text-red-500">*</span></label>
-                  <input type="time" name="jamMulaiProses" aria-label="Jam mulai proses" required={showProduction} value={formData.jamMulaiProses} onChange={handleChange}
+                  <input type="time" name="jamMulaiProses" aria-label="Jam mulai proses" aria-invalid={!!processTimeWarning} aria-describedby={processTimeWarning ? "process-time-warning" : undefined} required={showProduction} value={formData.jamMulaiProses} onChange={handleChange}
                     className="w-full border-gray-300 border p-3 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-white text-gray-900 shadow-sm" />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-gray-700">Jam Selesai <span className="text-red-500">*</span></label>
-                  <input type="time" name="jamSelesaiProses" aria-label="Jam selesai proses" required={showProduction} value={formData.jamSelesaiProses} onChange={handleChange}
+                  <input type="time" name="jamSelesaiProses" aria-label="Jam selesai proses" aria-invalid={!!processTimeWarning} aria-describedby={processTimeWarning ? "process-time-warning" : undefined} required={showProduction} value={formData.jamSelesaiProses} onChange={handleChange}
                     className="w-full border-gray-300 border p-3 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-white text-gray-900 shadow-sm" />
                 </div>
               </div>
-              {durasiProses && (
+              {processTimeWarning && (
+                <p id="process-time-warning" role="alert" className="mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-800">
+                  {processTimeWarning}
+                </p>
+              )}
+              {!processTimeWarning && durasiProses && (
                 <p className="text-xs font-semibold text-blue-700 bg-blue-50 inline-block px-3 py-1 rounded-full mb-6">
                   ⏱️ Durasi proses: {durasiProses}
                 </p>
