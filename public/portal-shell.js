@@ -39,7 +39,10 @@
     try{sessionStorage.setItem('portal-nav-context',JSON.stringify({date:context.date,shift:context.shift,line:context.line}));}catch{}
     document.querySelectorAll('[data-portal-nav="target"],[data-portal-nav="laporan"],[data-portal-nav="pekerjaan"]').forEach(a => {
       const u = new URL(a.href);
-      for(const name of ['date','shift','line'])if(context[name])u.searchParams.set(name,context[name]);
+      for(const name of ['date','shift','line']){
+        if(name!=='date'&&a.dataset.portalNav!=='pekerjaan')u.searchParams.delete(name);
+        else if(context[name])u.searchParams.set(name,context[name]);
+      }
       a.href = u.pathname + u.search;
     });
   }
