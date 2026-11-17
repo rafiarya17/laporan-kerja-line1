@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const {submitReport} = require('../.test-build/submission-service.js');
 const {ReceiverError, callReceiver} = require('../.test-build/receiver.js');
 const {initialForm} = require('../.test-build/lkh.js');
-const payload = {id:'LKH-12345678-1234-1234-1234-123456789abc',line:'LINE_1',form:{...initialForm,tanggal:'2020-01-01',shift:'1',mesin:'PRESS',part:'PART',operator:['A'],jamMulaiProses:'07:00',jamSelesaiProses:'16:00',qtyOk:'10',qtyRepair:'0',qtyReject:'0',lembur:'No'}};
+const payload = {id:'LKH-12345678-1234-1234-1234-123456789abc',line:'LINE_1',form:{...initialForm,tanggal:'2020-01-01',shift:'1',mesin:'PRESS',part:'PART',operator:['A'],jamMulaiProses:'07:30',jamSelesaiProses:'16:00',qtyOk:'10',qtyRepair:'0',qtyReject:'0',lembur:'No'}};
 const mapping={LINE_1:{operators:['A'],mesin_part_mapping:{PRESS:{options:['PART']}}}};
 const receipt={id:payload.id,state:'QUEUED',mode:'production',receivedAt:new Date().toISOString()};
 function fixture(overrides={}) {const calls=[];return {calls,call:async(action)=>{calls.push(action);if(action in overrides){if(overrides[action] instanceof Error)throw overrides[action];return overrides[action];}return {master:{mapping},lookup:{exists:false},submit:{receipt}}[action];}};}

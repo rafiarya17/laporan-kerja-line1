@@ -38,14 +38,20 @@ export async function submitSqlReport(payload: Submission) {
     error:'ID laporan sudah tersimpan dengan isi berbeda. Simpan ID ini dan hubungi admin; jangan buat laporan baru.'}};
   const accepted = (row: Record<string,unknown>) => ({status:200,body:{ok:true,receipt:{
     id:payload.id,state:'SQL_SAVED',mode:process.env.VERCEL_ENV === 'preview' ? 'test' : 'production',receivedAt:new Date(String(row.received_at)).toISOString(),
+    awaitingLeader: row.awaiting_leader === true,
   } as Receipt}});
   // Resolve retries before validation: accepted data survives master/date changes.
-  const [known]=await sql`SELECT received_at,payload=${json}::jsonb AS matches FROM lkh_reports WHERE id=${payload.id}`;
+  const [known]=await sql`SELECT received_at,leader_review IS NOT NULL AND leader_review->>'approvedAt' IS NULL AS awaiting_leader,payload=${json}::jsonb AS matches FROM lkh_reports WHERE id=${payload.id}`;
   if(known) return known.matches ? accepted(known) : conflict;
   const master=await intakeMaster(900);
   const errors=validateSubmission(payload,master.mapping);
   if(errors.length) return {status:400,body:{ok:false,error:errors.join(' '),clearPending:true}};
-  const [saved]=await sql`INSERT INTO lkh_reports(id,payload,master_version) VALUES(${payload.id},${json}::jsonb,${master.version})
-    ON CONFLICT(id) DO UPDATE SET id=excluded.id WHERE lkh_reports.payload=excluded.payload RETURNING received_at`;
+  const needsLeader = process.env.VERCEL_ENV === 'production' && payload.line === 'LINE_4';
+  const [saved]=await sql`INSERT INTO lkh_reports(id,payload,master_version,leader_review,next_attempt_at)
+    VALUES(${payload.id},${json}::jsonb,${master.version},
+      CASE WHEN ${needsLeader} THEN '{}'::jsonb END,
+      CASE WHEN ${needsLeader} THEN 'infinity'::timestamptz ELSE now() END)
+    ON CONFLICT(id) DO UPDATE SET id=excluded.id WHERE lkh_reports.payload=excluded.payload
+    RETURNING received_at,leader_review IS NOT NULL AND leader_review->>'approvedAt' IS NULL AS awaiting_leader`;
   return saved ? accepted(saved) : conflict;
 }

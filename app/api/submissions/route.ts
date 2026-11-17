@@ -19,9 +19,12 @@ export async function POST(request: Request) {
     if (new TextEncoder().encode(raw).length > 24000) return fail("Laporan terlalu panjang.", 413);
     let payload: Submission;
     try { payload = JSON.parse(raw); } catch { return fail("Format laporan tidak valid.", 400); }
+    if (process.env.VERCEL_ENV === 'production' && payload?.line === 'LINE_4' && !sqlSubmissionEnabled(payload.line)) {
+      return fail("Penerimaan Line 4 sedang tidak tersedia. Coba lagi dengan ID yang sama.", 503);
+    }
     const started=performance.now();
     const result = sqlSubmissionEnabled(payload?.line) ? await submitSqlReport(payload) : await submitReport(payload, request.headers.get("x-lkh-retry") === "1", receiverMode(), callReceiver);
-    if (sqlSubmissionEnabled(payload?.line) && result.body.ok) after(async () => {
+    if (sqlSubmissionEnabled(payload?.line) && result.body.ok && !('receipt' in result.body && result.body.receipt?.awaitingLeader)) after(async () => {
       try { await drainSqlDelivery(); } catch { console.error("LKH_SQL_DELIVERY_RETRY_REQUIRED"); }
     });
     return Response.json(result.body, {status: result.status, headers: {"Cache-Control": "no-store", "Server-Timing": `submission;dur=${Math.round(performance.now()-started)}`}});

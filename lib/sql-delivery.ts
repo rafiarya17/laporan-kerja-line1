@@ -29,7 +29,7 @@ export async function drainSqlDelivery(budgetMs=55000, call: ReceiverCall=callRe
     while(Date.now()-start<budgetMs-25000) {
       const [owned]=await sql`UPDATE lkh_delivery_worker SET lease_until=now()+interval '100 seconds' WHERE id=true AND owner=${owner}::uuid AND lease_until>now() RETURNING id`;
       if(!owned) break;
-      const [job]=await sql`SELECT id,payload FROM lkh_reports WHERE delivery_state='PENDING' AND next_attempt_at<=now() ORDER BY next_attempt_at,received_at LIMIT 1`;
+      const [job]=await sql`SELECT id,payload FROM lkh_reports WHERE delivery_state='PENDING' AND (leader_review IS NULL OR leader_review->>'approvedAt' IS NOT NULL) AND next_attempt_at<=now() ORDER BY next_attempt_at,received_at LIMIT 1`;
       if(!job) break;
       await sql`UPDATE lkh_reports SET attempts=attempts+1,next_attempt_at=now()+interval '100 seconds' WHERE id=${job.id}`;
       try {
