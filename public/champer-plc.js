@@ -4,7 +4,11 @@ let refreshing=false,refreshAgain=false;
 let snapshot=null,selected=null,current=null,pending=null,busy=false,timer=null,masterReady=false,qualityJob=null,reportEnabled=false;
 const reportDrafts=new Map();
 const timeDrafts=new Map();let timeEditorJob=null,historyInitialized=false;
-try{const t=JSON.parse(sessionStorage.getItem('champer-selected-target')||'null');if(t?.source==='LIVE_READ_ONLY')selected=t;pending=JSON.parse(localStorage.getItem(pendingKey)||'null');}catch{}
+const params=new URLSearchParams(location.search);
+const selectionRequested=['date','shift','part'].some(key=>params.has(key));
+const requested=selectionRequested?{date:params.get('date')||'',shift:params.get('shift')||'',part:params.get('part')||'',line:'LINE_99',machine:'AUTO CHAMPER'}:null;
+let targetMessage='',targetRequest=0;
+try{pending=JSON.parse(localStorage.getItem(pendingKey)||'null');}catch{}
 const messages={TABLET_PAIRING_REQUIRED:'Pasangkan tablet sebelum menggunakan pembacaan PLC.',CLOUD_BRIDGE_NOT_CONFIGURED:'Penghubung cloud belum diaktifkan. Ikuti pemasangan database dan PC terlebih dahulu.',LOCAL_COLLECTOR_NOT_READY:'Kolektor lokal belum siap. Buka API lokal dan sambungkan D100 di kolektor.',MACHINE_HAS_OPEN_JOB:'Champer sudah mempunyai sesi terbuka. Muat ulang untuk melanjutkannya.',TARGET_CHANGED_RELOAD:'Target leader telah berubah. Pilih kembali dari daftar pekerjaan.',REVISION_CONFLICT:'Sesi berubah pada perangkat lain. Muat ulang sebelum melanjutkan.',BUSY_RETRY_SAME_ID:'Permintaan bersamaan. Gunakan Kirim ulang permintaan yang sama.',ISSUE_REQUIRED:'Repair/reject memerlukan penjelasan kendala.',INVALID_QUANTITY:'Isi OK, Repair, dan Reject dengan bilangan bulat 0 atau lebih.',PAIRING_CODE_INVALID:'Kode pemasangan tidak cocok.'};
 const states=ChamperWork.states;
 const closed=j=>['COMPLETED_PILOT','CANCELLED','CLOSED_REVIEW'].includes(j.state);
@@ -56,25 +60,71 @@ function reportControls(j){
  el('history').append(box);
 }
 async function call(path,body){const r=await andonFetch('/api/champer/'+path,{method:body===undefined?'GET':'POST',headers:{'content-type':'application/json'},body:body===undefined?undefined:JSON.stringify(body),cache:'no-store'});const b=await r.json();if(!r.ok){const e=Error(messages[b.error]||b.error||'Permintaan belum terkonfirmasi.');e.status=r.status;e.code=b.error;throw e;}return b;}
+function targetLabel(t) {
+ return `${t.part} · ${t.date} · Shift ${t.shift} · target ${t.targetQty} pcs · versi ${t.version}`;
+}
+async function loadSelectedTarget() {
+ if(!requested)return;
+ const number=++targetRequest;
+ const {date,shift,part,line,machine}=requested;
+ selected=null;
+ targetMessage='Memuat target leader untuk pilihan ini…';
+ if(snapshot)display();
+ try{
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!['1','2'].includes(shift)||!part){
+   throw Error('Pilihan belum lengkap. Pilih target dari Daftar pekerjaan.');
+  }
+  const response=await andonFetch('/api/leader',{
+   method:'POST',headers:{'content-type':'application/json'},cache:'no-store',
+   body:JSON.stringify({action:'snapshot',phase:'targets',date,shift,line}),
+  });
+  const body=await response.json();
+  if(!response.ok||!body.ok||body.data?.date!==date||String(body.data?.shift)!==shift||!Array.isArray(body.data?.targets)){
+   throw Error('Target leader belum dapat dibaca. Gunakan Muat ulang untuk mencoba lagi.');
+  }
+  const target=body.data.targets.find(t=>t.line===line&&t.date===date&&String(t.shift)===shift);
+  const item=target?.items?.find(i=>i.machine===machine&&i.part===part);
+  if(!Number.isSafeInteger(target?.version)||target.version<1||!Number.isSafeInteger(item?.targetQty)||item.targetQty<1){
+   throw Error('Target ini sudah tidak tersedia. Pilih kembali dari Daftar pekerjaan.');
+  }
+  if(number!==targetRequest)return;
+  selected={date,shift,line,machine,part,version:target.version,targetQty:item.targetQty,source:'LIVE_READ_ONLY'};
+  const checked=window.PortalDraft?.get(operatorDraftKey())||[];
+  for(const input of el('operators').querySelectorAll('input'))input.checked=checked.includes(input.value);
+  targetMessage='';
+ }catch(e){
+  if(number===targetRequest)targetMessage=e.message;
+ }finally{
+  if(number===targetRequest&&snapshot)display();
+ }
+}
 function display(){
  current=snapshot?.jobs.find(j=>!closed(j))||null;
- el('retry').hidden=!pending;
  el('connection').textContent=snapshot?.deviceReady?'PC penghubung siap menerima permintaan baca.':'PC penghubung belum siap / belum ada kabar terbaru. Data lama tidak menggantikan pembacaan baru.';
  const t=current?.target||selected;
  el('target-history').textContent=t?ChamperWork.summary(snapshot.jobs,t).text:'';
- if(!historyInitialized){historyInitialized=true;el('history-date').value=t?.date||'';el('history-shift').value=t?.shift||'';}
- el('target').textContent=t?`${t.part} · ${t.date} · Shift ${t.shift} · target ${t.targetQty} pcs · versi ${t.version}`:'Pilih target leader dari Daftar pekerjaan.';
+ if(!historyInitialized){historyInitialized=true;el('history-date').value=(requested||t)?.date||'';el('history-shift').value=(requested||t)?.shift||'';}
+ el('target').textContent=t?targetLabel(t):targetMessage||'Pilih target leader dari Daftar pekerjaan.';
+ const differentSession=current&&selected&&(!ChamperWork.sameTarget(current.target,selected)||current.target.version!==selected.version);
+ el('selection-notice').textContent=differentSession
+  ? 'Target yang Anda pilih: '+targetLabel(selected)+'. Champer masih punya sesi terbuka. Buka sesi tersebut untuk melanjutkan atau menutupnya sebelum menyiapkan target baru.'
+  : current&&targetMessage?targetMessage:'';
+ el('selection-notice').hidden=!el('selection-notice').textContent;
+ const reviewOpenSession=!!current&&!!requested&&(!selected||differentSession);
+ el('retry').hidden=!pending||reviewOpenSession;
+ el('resume-open-session').hidden=!reviewOpenSession;
+ el('operators').disabled=!selected||!!current;
  el('prepare').disabled=busy||!!pending||!!current||!selected||!masterReady;
  const st=current?.state;el('state').textContent=states[st]||'Belum ada sesi aktif';el('identity').textContent=current?current.operators.join(', ')+' · '+current.id:'';
  for(const [id,value] of [['start',current?.startEvidence?.counter_raw],['end',current?.endEvidence?.counter_raw],['delta',current?.delta]])el(id).textContent=value==null?'—':Number(value).toLocaleString('id-ID');
- el('begin').disabled=busy||!!pending||!snapshot?.deviceReady||!['DRAFT','START_FAILED'].includes(st);
+ el('begin').disabled=busy||!!pending||reviewOpenSession||!snapshot?.deviceReady||!['DRAFT','START_FAILED'].includes(st);
  el('begin').textContent=st==='START_FAILED'?'Coba baca awal lagi':'Mulai pekerjaan';
- el('finish').disabled=busy||!!pending||!snapshot?.deviceReady||!['ACTIVE','END_FAILED'].includes(st);
+ el('finish').disabled=busy||!!pending||reviewOpenSession||!snapshot?.deviceReady||!['ACTIVE','END_FAILED'].includes(st);
  el('finish').textContent=st==='END_FAILED'?'Coba baca akhir lagi':'Akhiri pekerjaan';
- el('close').disabled=busy||!!pending||!current;
+ el('close').disabled=busy||!!pending||!current||reviewOpenSession;
  el('explain').textContent=st==='REVIEW_REQUIRED'?'Counter turun, rentang, atau urutan bukti tidak sesuai. Selisih tidak dihitung. Tutup dengan alasan untuk pemeriksaan.':st?.endsWith('FAILED')?'Batas waktu habis atau pembacaan gagal. Coba ulang setelah koneksi siap; counter tidak diganti dengan 0.':st?.endsWith('PENDING')?'Permintaan tersimpan. Tunggu hasil dari PC; halaman boleh dimuat ulang.':'';
- el('quality').hidden=!['END_CAPTURED','REVIEW_REQUIRED'].includes(st);
- el('work-time').hidden=!['END_CAPTURED','REVIEW_REQUIRED'].includes(st);
+ el('quality').hidden=reviewOpenSession||!['END_CAPTURED','REVIEW_REQUIRED'].includes(st);
+ el('work-time').hidden=reviewOpenSession||!['END_CAPTURED','REVIEW_REQUIRED'].includes(st);
  if(!el('work-time').hidden){const key=current.id+':'+current.revision+':'+busy;if(timeEditorJob!==key){timingEditor(el('work-time'),current);timeEditorJob=key;}}
  if(current&&qualityJob!==current.id){qualityJob=current.id;const saved=window.PortalDraft?.get('quality:'+current.id+':'+current.revision);const defaults={ok:'',repair:'0',reject:'0',issue:'Tidak',classification:'MANUSIA',problem:'',action:'',pic:''};for(const id of Object.keys(defaults))el(id).value=saved?.[id]??current.quality?.[id]??defaults[id];}
  el('save-quality').disabled=busy||!!pending;
@@ -97,7 +147,7 @@ document.addEventListener('change',preserveSessionDraft);
 el('operators').addEventListener('change',()=>window.PortalDraft?.set(operatorDraftKey(),[...el('operators').querySelectorAll('input:checked')].map(x=>x.value)));
 window.addEventListener('pagehide',()=>{preserveSessionDraft();clearTimeout(timer);});
 document.addEventListener('visibilitychange',()=>{if(document.hidden){clearTimeout(timer);preserveSessionDraft();}else refresh();});
-el('refresh').onclick=refresh;el('retry').onclick=()=>send(pending);
+el('refresh').onclick=()=>{if(requested)void loadSelectedTarget();void refresh();};el('retry').onclick=()=>send(pending);
 for(const id of ['history-date','history-shift','history-status','history-search'])el(id).oninput=renderHistory;
 el('pair').onclick=async()=>{try{await call('pair',{code:el('pair-code').value.trim()});el('pair-code').value='';notice('Tablet terpasang.');await refresh();}catch(e){notice(e.message);}};
 el('prepare').onclick=()=>{const operators=[...document.querySelectorAll('#operators input:checked')].map(x=>x.value);const {date,shift,line,machine,part,version,targetQty}=selected;send({action:'prepare',requestId:crypto.randomUUID(),target:{date,shift,line,machine,part,version,targetQty},operators});};
@@ -106,4 +156,5 @@ el('close').onclick=()=>{const reason=prompt('Alasan menutup sesi untuk pemeriks
 el('save-quality').onclick=()=>act('quality',{quality:Object.fromEntries(['ok','repair','reject','issue','classification','problem','action','pic'].map(k=>[k,el(k).value.trim()]))});
 el('issue').onchange=()=>{el('issue-fields').hidden=el('issue').value!=='Ada';};
 el('export').onclick=()=>{const url=URL.createObjectURL(new Blob([JSON.stringify(snapshot,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='champer-cloud-pilot.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),5000);};
+void loadSelectedTarget();
 (async()=>{try{const r=await andonFetch('/api/master',{cache:'no-store'}),m=await r.json();if(m.ready&&m.source==='live'){for(const name of m.mapping.LINE_99.operators.filter(x=>x!=='__other_option__')){const label=document.createElement('label');label.className='check';const input=document.createElement('input');input.type='checkbox';input.value=name;input.checked=(window.PortalDraft?.get(operatorDraftKey())||[]).includes(name);label.append(input,document.createTextNode(name));el('operators').append(label);}masterReady=true;}}catch{}await refresh();})();

@@ -32,7 +32,13 @@
     const date = document.getElementById(page === 'dashboard' ? 'start' : 'date');
     const shift = document.getElementById('shift'), line = document.getElementById('line');
     let context={};
-    try{context=JSON.parse(sessionStorage.getItem('portal-nav-context')||'{}');if(page==='sesi')context=JSON.parse(sessionStorage.getItem('champer-selected-target')||'null')||context;}catch{}
+    try{context=JSON.parse(sessionStorage.getItem('portal-nav-context')||'{}');}catch{}
+    if(page==='sesi'){
+      const params=new URLSearchParams(location.search);
+      if(/^\d{4}-\d{2}-\d{2}$/.test(params.get('date')||''))context.date=params.get('date');
+      if(['1','2'].includes(params.get('shift')))context.shift=params.get('shift');
+      context.line='LINE_99';
+    }
     if(date?.value)context.date=date.value;
     if(shift?.value && shift.value!=='all')context.shift=shift.value;
     if(line?.value)context.line=line.value;

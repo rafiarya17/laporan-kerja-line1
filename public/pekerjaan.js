@@ -65,9 +65,11 @@ function render() {
       if(liveTarget)text(card,'p',summary?summary.text:'Status pekerjaan belum diketahui · muat riwayat atau pasangkan tablet','pill history-badge');
       if(liveTarget&&!plcPilotReady){text(card,'p','Pembacaan PLC belum tersedia. Pekerjaan nyata tidak dialihkan ke simulasi.','hint');continue;}
       const link = text(card,'a',liveTarget?(summary?.active?'Lanjutkan sesi Champer':summary?.started.length?'Mulai sesi baru · Champer':'Buka pekerjaan Champer'):'Coba alur simulasi','action');
-      link.href = liveTarget?'/champer-plc.html':'/champer-simulasi.html?from=pekerjaan';
+      link.href = liveTarget
+        ? '/champer-plc.html?' + new URLSearchParams({date:item.date,shift:item.shift,part:item.part})
+        : '/champer-simulasi.html?from=pekerjaan';
       text(card,'p',liveTarget?'Pembacaan D100 asli · Line 99 Uji':'Latihan dengan angka contoh; tidak membaca PLC.','hint');
-      link.onclick = event => {
+      if (!liveTarget) link.onclick = event => {
         try { sessionStorage.setItem('champer-selected-target',JSON.stringify(item)); }
         catch { event.preventDefault(); element('notice').textContent = 'Pilihan belum dapat disimpan. Izinkan penyimpanan browser, lalu coba lagi.'; }
       };
