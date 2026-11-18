@@ -40,3 +40,11 @@ Pilot cleanup must wait for all jobs for the exact pilot ID to finish. Archive t
 ## Limits
 
 Idempotency applies to the same ID and payload, not independently created reports describing identical work. Local drafts/outbox are browser-specific; clearing browser data removes recovery. The signing secret authenticates the Vercel server, not individual operators. Prefer isolated tests for routine development; the authorized live pilot is an explicit acceptance exception.
+
+## Line Pencucian
+
+The production Apps Script receiver is deployed separately from Vercel. Apply the Pencucian changes from `LkhReceiver.gs` to the matching functions in the deployed receiver. Keep the existing Line 99, revision, and other receiver handlers in place. Add a `LINE_PENCUCIAN` entry to the existing `SOURCES_JSON` in Script Properties, using the ID of the current Pencucian response workbook and the tab name `LKH FORM RESPONSES - LINE PENCUCIAN`. Preserve the other entries. Validate that tab against the active `MASTER_CT` machine names, including the matching `Nama Part — PENCUCIAN` column and `ID LKH (otomatis)`.
+
+Deploy a new version of the existing receiver so its URL stays the same. Release the web form changes before the receiver advertises Pencucian: the form lists the line only once the live master includes it. Confirm that production `/api/master` lists the line after the cache refreshes, and verify the first actual submission by ID in Neon, the response sheet, and TF Slip before retiring Google Form for operators. Pencucian uses the normal automatic publication flow and the existing source sheet. Keep historical responses in place.
+
+Pencucian keeps repair/reject counts independent of downtime, as in the legacy responses. If a report has a downtime event, the standard 4M and time details apply. The optional `Jumlah Sambungan` field maps to the existing legacy column. Operator names come from `MASTER_OPERATOR` with the existing exclusions and the `Lainnya` option.

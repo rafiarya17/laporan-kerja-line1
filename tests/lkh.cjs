@@ -39,3 +39,16 @@ test('Line 99 validates the same complete operator form but uses a separate ID n
  const p=sample(),m={...master,LINE_99:master.LINE_1};p.line='LINE_99';p.id=p.id.replace('LKH-','LKH99-');assert.deepEqual(validateSubmission(p,m,now),[]);
  p.line='LINE_1';assert.ok(validateSubmission(p,m,now).length);p.line='LINE_99';p.id=p.id.replace('LKH99-','LKH-');assert.ok(validateSubmission(p,m,now).length);
 });
+
+test('Pencucian accepts repair without downtime and validates optional connection count',()=>{
+  const payload=sample();
+  payload.line='LINE_PENCUCIAN';
+  Object.assign(payload.form,{mesin:'PENCUCIAN',qtyRepair:'20',kendala:'Tidak'});
+  const catalog={LINE_PENCUCIAN:{operators:['Operator A'],mesin_part_mapping:{PENCUCIAN:{options:['PART A']}}}};
+  assert.deepEqual(validateSubmission(payload,catalog,now),[]);
+  payload.form.jumlahSambungan='__other_option__';
+  payload.form.jumlahSambunganLainnya='2.5';
+  assert.match(validateSubmission(payload,catalog,now).join(' '),/jumlah sambungan/);
+  payload.form.jumlahSambunganLainnya='2';
+  assert.deepEqual(validateSubmission(payload,catalog,now),[]);
+});

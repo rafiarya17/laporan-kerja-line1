@@ -124,7 +124,7 @@ export function validateSubmission(value: unknown, master: Master, now = Date.no
     }
     if (!["Yes", "No"].includes(f.lembur)) errors.push("Pilih status lembur.");
     if (!["Ada", "Tidak"].includes(f.kendala)) errors.push("Pilih status kendala.");
-    if ((Number(f.qtyRepair) > 0 || Number(f.qtyReject) > 0) && f.kendala !== "Ada") errors.push("Repair/reject lebih dari 0: pilih Ada Kendala dan lengkapi penjelasan.");
+    if (p.line !== "LINE_PENCUCIAN" && (Number(f.qtyRepair) > 0 || Number(f.qtyReject) > 0) && f.kendala !== "Ada") errors.push("Repair/reject lebih dari 0: pilih Ada Kendala dan lengkapi penjelasan.");
     if (f.kendala === "Ada") {
       if (!["MANUSIA", "MESIN", "MATERIAL", "METODE", ...(p.line === "LINE_8" ? ["DANDORY"] : [])].includes(f.kendala4M) || !f.permasalahan.trim() || !f.tindakan.trim() || !f.pic.trim()) errors.push("Lengkapi klasifikasi dan detail kendala.");
       const s = minutes(f.jamMulaiKendala), e = minutes(f.jamSelesaiKendala);
@@ -136,7 +136,7 @@ export function validateSubmission(value: unknown, master: Master, now = Date.no
         if (start < interval.start || end > interval.end) errors.push("Waktu kendala harus berada dalam waktu proses.");
       }
     }
-    if (p.line === "LINE_8" && f.jumlahSambungan === "__other_option__" && !/^\d+$/.test(f.jumlahSambunganLainnya)) errors.push("Isi jumlah sambungan lainnya dengan angka bulat nonnegatif.");
+    if ((p.line === "LINE_8" || p.line === "LINE_PENCUCIAN") && f.jumlahSambungan === "__other_option__" && !/^\d+$/.test(f.jumlahSambunganLainnya)) errors.push("Isi jumlah sambungan lainnya dengan angka bulat nonnegatif.");
   }
   return [...new Set(errors)];
 }

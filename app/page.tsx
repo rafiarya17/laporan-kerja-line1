@@ -60,7 +60,7 @@ export default function LaporanKerjaForm() {
       const savedPending = localStorage.getItem(PENDING_KEY);
       if (savedPending) {
         const p = JSON.parse(savedPending) as Submission;
-        if (!p.id || !p.form || (!Object.hasOwn(SNAPSHOT, p.line) && p.line !== "LINE_99")) throw Error();
+        if (!p.id || !p.form || (!Object.hasOwn(SNAPSHOT, p.line) && !["LINE_99", "LINE_PENCUCIAN"].includes(p.line))) throw Error();
         setPending(p); setLineSelected(p.line); setFormData(p.form);
       }
       setDraftAvailable(Boolean(localStorage.getItem(DRAFT_KEY)));
@@ -99,6 +99,7 @@ export default function LaporanKerjaForm() {
 
   // --- Flag Line 8 & percabangan aktivitas ---
   const isLine8 = lineSelected === "LINE_8";
+  const isPencucian = lineSelected === "LINE_PENCUCIAN";
   const showProduction = !isLine8 || formData.jenisAktivitas === "PRODUKSI";
   const showDandori = isLine8 && formData.jenisAktivitas === "DANDORI";
 
@@ -128,7 +129,7 @@ export default function LaporanKerjaForm() {
       ...prev,
       [name]: value,
       ...(name === "mesin" ? { ...resetForContext(prev), mesin: value, operator: prev.operator, operatorLainnya: prev.operatorLainnya } : {}),
-      ...(["qtyRepair", "qtyReject"].includes(name) && Number(value) > 0 ? { kendala: "Ada" } : {}),
+      ...(!isPencucian && ["qtyRepair", "qtyReject"].includes(name) && Number(value) > 0 ? { kendala: "Ada" } : {}),
     }));
   };
 
@@ -326,7 +327,7 @@ export default function LaporanKerjaForm() {
                   className="w-full border-gray-300 border p-3 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-blue-50 text-blue-900 font-bold shadow-sm"
                 >
                   {Object.keys(mapping).map((l) => (
-                    <option key={l} value={l}>{l === "LINE_99" ? "LINE 99 — Uji" : l.replace("_", " ")}</option>
+                    <option key={l} value={l}>{l === "LINE_99" ? "LINE 99 — Uji" : l === "LINE_PENCUCIAN" ? "Line Pencucian" : l.replace("_", " ")}</option>
                   ))}
                 </select>
               </div>
@@ -510,7 +511,7 @@ export default function LaporanKerjaForm() {
                       className={`w-full border-gray-300 border p-3 rounded-xl text-center text-lg font-bold outline-none focus:ring-2 shadow-sm ${colorMap[f.color]}`}
                     />
                     {f.helper && <p className="text-[10px] text-gray-500 italic text-center leading-tight">{f.helper}</p>}
-                    {(f.name === "qtyRepair" || f.name === "qtyReject") && (
+                    {!isPencucian && (f.name === "qtyRepair" || f.name === "qtyReject") && (
                       <p className="text-[10px] md:text-xs text-red-500 italic text-center leading-tight">
                         *Apabila ada, pilih opsi &quot;Ada Kendala&quot;
                       </p>
@@ -519,8 +520,8 @@ export default function LaporanKerjaForm() {
                 ))}
               </div>
 
-              {/* JUMLAH SAMBUNGAN (Line 8, opsional) */}
-              {isLine8 && (
+              {/* JUMLAH SAMBUNGAN (opsional) */}
+              {(isLine8 || isPencucian) && (
                 <div className="space-y-2 mt-4 mb-2">
                   <label className="text-sm font-semibold text-gray-700">Jumlah Sambungan</label>
                   <div className="flex flex-wrap gap-2">

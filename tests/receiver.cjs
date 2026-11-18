@@ -93,3 +93,47 @@ test('separate reports and another writer interleave without overwriting jobs',(
  f.request('submit');f.payload.id='LKH-22345678-1234-1234-1234-123456789abc';f.request('submit');
  assert.equal(f.queue.rows.length,6);assert.equal(f.queue.rows[3][0],'other');assert.equal(new Set(f.queue.rows.slice(3).map(r=>r[0])).size,3);
 });
+
+test('Pencucian is only advertised in production when its response source is configured',()=>{
+  const f=fixture('production');
+  vm.runInContext(fs.readFileSync('apps-script/LkhReceiver.gs','utf8'),f.ctx);
+  f.props.MASTER_SPREADSHEET_ID='master';
+  const ct=[['ACTIVE','LINE_ID','MACHINE_NAME','PART_NAME_STANDARD','PART_CATEGORY'],
+    ...Array.from({length:8},(_,i)=>[true,'LINE_'+(i+1),'PRESS','PART A','WIP']),
+    [true,'LINE_PENCUCIAN','PENCUCIAN','LEAK TEST MUFFLER','ASSY']];
+  const operators=[['AKTIF','NAMA_OPERATOR','LINE_DEFAULT'],[true,'Washing A','LINE_PENCUCIAN']];
+  f.ctx.SpreadsheetApp.openById=()=>({getSheetByName:n=>({getDataRange:()=>({getValues:()=>structuredClone(n==='MASTER_CT'?ct:operators)})})});
+  assert.equal(f.request('master',{}).mapping.LINE_PENCUCIAN,undefined);
+  f.props.SOURCES_JSON=JSON.stringify({...JSON.parse(f.props.SOURCES_JSON),LINE_PENCUCIAN:{id:'washing',sheet:'responses'}});
+  const line=f.request('master',{}).mapping.LINE_PENCUCIAN;
+  assert.deepEqual(line.operators,['Washing A','__other_option__']);
+  assert.equal(line.mesin_part_mapping.PENCUCIAN.categories['LEAK TEST MUFFLER'],'ASSY');
+});
+test('Pencucian keeps the response schema and queues one source row on retry',()=>{
+  const f=fixture('production');
+  const sources=JSON.parse(f.props.SOURCES_JSON);
+  f.props.SOURCES_JSON=JSON.stringify({...sources,LINE_PENCUCIAN:{id:'washing',sheet:'LKH FORM RESPONSES - LINE PENCUCIAN'}});
+  const source=new Sheet([['Cap waktu','Tanggal Laporan','Shift','Nama Operator','Nama Mesin','Nama Part — PENCUCIAN',
+    'Jam Mulai Proses','Jam Selesai Proses','Qty Produksi OK','Qty Repair','Qty Reject','Jumlah Sambungan','Ada kendala ?',
+    'Kendala 4M','Permasalahan','Tindakan','PIC','Jam Mulai Kendala','Jam Selesai Kendala',
+    'Apakah laporan ini mencakup lembur?','Dikoreksi oleh','Alasan koreksi','ID LKH (otomatis)']]);
+  const open=f.ctx.SpreadsheetApp.openById;
+  f.ctx.SpreadsheetApp.openById=id=>id==='washing'?{getSheetByName:name=>{
+    assert.equal(name,'LKH FORM RESPONSES - LINE PENCUCIAN');
+    return source;
+  }}:open(id);
+  f.ctx.lkhWebMaster_=()=>({LINE_PENCUCIAN:{operators:['Operator A'],mesin_part_mapping:{PENCUCIAN:{options:['LEAK TEST MUFFLER']}}}});
+  f.payload.line='LINE_PENCUCIAN';
+  Object.assign(f.payload.form,{mesin:'PENCUCIAN',part:'LEAK TEST MUFFLER',qtyOk:'222',qtyRepair:'20',jumlahSambungan:'2'});
+  const first=f.request('submit');
+  assert.equal(first.receipt.state,'QUEUED');
+  assert.deepEqual(f.request('submit'),first);
+  assert.equal(source.rows.length,2);
+  assert.equal(f.source.rows.length,1);
+  assert.deepEqual(Array.from(source.rows[1].slice(2)),['1','Operator A','PENCUCIAN','LEAK TEST MUFFLER','07:30','16:30',
+    222,20,0,'2','Tidak','','','','','','','No','','',f.payload.id]);
+  assert.equal(f.queue.rows.length,4);
+  const job=JSON.parse(f.queue.rows[3][6]);
+  assert.equal(job.source,'washing');
+  assert.equal(job.id,f.payload.id);
+});

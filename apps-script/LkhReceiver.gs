@@ -33,7 +33,11 @@ function lkhWebJson_(value) { return ContentService.createTextOutput(JSON.string
 function lkhWebHex_(bytes) { return bytes.map(function(b){return ('0'+((b+256)%256).toString(16)).slice(-2);}).join(''); }
 function lkhWebActive_(v) { return v === true || String(v).toUpperCase() === 'TRUE'; }
 function lkhWebMaster_() {
-  var id = PropertiesService.getScriptProperties().getProperty('MASTER_SPREADSHEET_ID');
+  var props = PropertiesService.getScriptProperties();
+  var id = props.getProperty('MASTER_SPREADSHEET_ID');
+  var isProduction = props.getProperty('RECEIVER_MODE') === 'production';
+  var washingSource = isProduction ? JSON.parse(props.getProperty('SOURCES_JSON') || '{}').LINE_PENCUCIAN : null;
+  var includeWashing = !isProduction || Boolean(washingSource && washingSource.id && washingSource.sheet);
   if (!id) throw Error('MASTER_NOT_CONFIGURED');
   var ss = SpreadsheetApp.openById(id), ct = ss.getSheetByName('MASTER_CT'), operators = ss.getSheetByName('MASTER_OPERATOR');
   if (!ct || !operators) throw Error('MASTER_SCHEMA_CHANGED');
@@ -43,7 +47,7 @@ function lkhWebMaster_() {
   rows.forEach(function(r){
     if (!lkhWebActive_(r[h.indexOf('ACTIVE')])) return;
     var line = String(r[h.indexOf('LINE_ID')]), machine = String(r[h.indexOf('MACHINE_NAME')]).trim(), part = String(r[h.indexOf('PART_NAME_STANDARD')]).trim();
-    if (!/^LINE_[1-8]$/.test(line) || !machine || !part) return;
+    if ((!/^LINE_[1-8]$/.test(line) && !(includeWashing && line === 'LINE_PENCUCIAN')) || !machine || !part) return;
     if (!out[line]) out[line] = {operators:[],mesin_part_mapping:{}};
     if (!out[line].mesin_part_mapping[machine]) out[line].mesin_part_mapping[machine] = {options:[], categories:{}};
     var m = out[line].mesin_part_mapping[machine];
@@ -56,12 +60,12 @@ function lkhWebMaster_() {
   Object.keys(out).forEach(function(line){
     var assigned = active.filter(function(r){
       var name=String(r[oh.indexOf('NAMA_OPERATOR')]).trim().toLowerCase();
-      var lines=String(r[oh.indexOf('LINE_DEFAULT')]).toUpperCase().match(/\bLINE_[1-8]\b/g)||[];
+      var lines=String(r[oh.indexOf('LINE_DEFAULT')]).toUpperCase().match(/\bLINE_(?:[1-8]|PENCUCIAN)\b/g)||[];
       return name!=='wardiman' && name!=='darmoko' && lines.indexOf(line)>=0;
     });
     out[line].operators = assigned.map(function(r){return String(r[oh.indexOf('NAMA_OPERATOR')]).trim();}).filter(function(v,i,a){return a.indexOf(v)===i;}).concat(['__other_option__']);
   });
-  if (Object.keys(out).length !== 8) throw Error('MASTER_INCOMPLETE');
+  if (Object.keys(out).filter(function(line){return /^LINE_[1-8]$/.test(line);}).length !== 8) throw Error('MASTER_INCOMPLETE');
   return out;
 }
 /** Resolve manual names before writing a response; never store the UI marker. */
@@ -98,7 +102,8 @@ function lkhWebValidate_(p, master) {
     if(end<=start||end-start>57600000||end>Date.now()+300000)throw Error('INVALID_PROCESS_TIME');
     ['qtyOk','qtyRepair','qtyReject'].forEach(function(k){if(!/^\d+(\.\d+)?$/.test(f[k])||Number(f[k])>100000000||(p.line!=='LINE_8'&&Number(f[k])%1!==0))throw Error('INVALID_QTY');});
     if(['Yes','No'].indexOf(f.lembur)<0||['Ada','Tidak'].indexOf(f.kendala)<0)throw Error('INVALID_STATUS');
-    if((Number(f.qtyRepair)>0||Number(f.qtyReject)>0)&&f.kendala!=='Ada')throw Error('REPAIR_REJECT_NEEDS_ISSUE');
+    if(p.line!=='LINE_PENCUCIAN'&&(Number(f.qtyRepair)>0||Number(f.qtyReject)>0)&&f.kendala!=='Ada')throw Error('REPAIR_REJECT_NEEDS_ISSUE');
+    if(p.line==='LINE_PENCUCIAN'&&f.jumlahSambungan==='__other_option__'&&!/^\d+$/.test(f.jumlahSambunganLainnya||''))throw Error('INVALID_CONNECTION_COUNT');
     if(f.kendala==='Ada'){
       if(['MANUSIA','MESIN','MATERIAL','METODE'].concat(p.line==='LINE_8'?['DANDORY']:[]).indexOf(f.kendala4M)<0||!f.permasalahan.trim()||!f.tindakan.trim()||!f.pic.trim())throw Error('INCOMPLETE_ISSUE');
       var ks=time(f.jamMulaiKendala),ke=time(f.jamSelesaiKendala),delta=(ke-ks+1440)%1440;
