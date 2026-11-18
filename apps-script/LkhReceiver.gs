@@ -69,12 +69,14 @@ function lkhWebMaster_() {
   return out;
 }
 /** Resolve manual names before writing a response; never store the UI marker. */
-function lkhWebOperatorNames_(f){
+function lkhWebOperatorNames_(f,line){
   var names=f.operator.filter(function(n){return n!=='__other_option__';});
   if(f.operator.indexOf('__other_option__')>=0){
-    var manual=String(f.operatorLainnya||'').trim().replace(/\s+/g,' ');
-    if(!manual || manual.length>100 || /[,;\r\n\x00-\x1f]/.test(String(f.operatorLainnya||'')))throw Error('INVALID_MANUAL_OPERATOR');
-    names.push(manual);
+    var raw=String(f.operatorLainnya||''),washing=line==='LINE_PENCUCIAN';
+    var invalidCharacters=washing?/[;\r\n\x00-\x1f]/:/[,;\r\n\x00-\x1f]/;
+    var manual=(washing?raw.split(','):[raw]).map(function(name){return name.trim().replace(/\s+/g,' ');});
+    if(invalidCharacters.test(raw)||manual.some(function(name){return !name||name.length>100;}))throw Error('INVALID_MANUAL_OPERATOR');
+    names=names.concat(manual);
   }
   var seen={};names.forEach(function(n){var key=n.trim().replace(/\s+/g,' ').toLowerCase();if(seen[key])throw Error('DUPLICATE_OPERATOR');seen[key]=true;});
   return names;
@@ -84,7 +86,7 @@ function lkhWebValidate_(p, master) {
   var f = p.form, m = f && master[p.line].mesin_part_mapping[f.mesin];
   if (!f || !m || m.options.indexOf(f.part)<0 || !Array.isArray(f.operator) || !f.operator.length) throw Error('INVALID_MASTER_SELECTION');
   if (f.operator.some(function(o){return master[p.line].operators.indexOf(o)<0;}) || f.operator.length!==f.operator.filter(function(o,i,a){return a.indexOf(o)===i;}).length) throw Error('INVALID_OPERATOR');
-  lkhWebOperatorNames_(f);
+  lkhWebOperatorNames_(f,p.line);
   Object.keys(f).forEach(function(k){if(k!=='operator' && (typeof f[k]!=='string' || f[k].length>3000))throw Error('INVALID_FIELD');});
   if (!/^\d{4}-\d{2}-\d{2}$/.test(f.tanggal) || ['1','2'].indexOf(f.shift)<0) throw Error('INVALID_DATE_SHIFT');
   var day = Date.parse(f.tanggal+'T00:00:00+07:00');
@@ -158,7 +160,7 @@ function lkhWebLookup_(p,mode){
   if(saved[1]!==hash||saved[5]!==mode)throw Error('ID_PAYLOAD_CONFLICT');return true;
 }
 function lkhWebSourceValues_(p,headers){
-  var f=p.form,fields={'Cap waktu':new Date(),'Tanggal Laporan':new Date(f.tanggal+'T00:00:00+07:00'),'Shift':f.shift,'Nama Operator':lkhWebOperatorNames_(f).join(', '),'Nama Mesin':f.mesin,'ID LKH (otomatis)':p.id};
+  var f=p.form,fields={'Cap waktu':new Date(),'Tanggal Laporan':new Date(f.tanggal+'T00:00:00+07:00'),'Shift':f.shift,'Nama Operator':lkhWebOperatorNames_(f,p.line).join(', '),'Nama Mesin':f.mesin,'ID LKH (otomatis)':p.id};
   var aliases={jamMulaiProses:'Jam Mulai Proses',jamSelesaiProses:'Jam Selesai Proses',qtyOk:'Qty Produksi OK',qtyRepair:'Qty Repair',qtyReject:'Qty Reject',kendala:'Ada kendala ?',kendala4M:'Kendala 4M',permasalahan:'Permasalahan',tindakan:'Tindakan',pic:'PIC',jamMulaiKendala:'Jam Mulai Kendala',jamSelesaiKendala:'Jam Selesai Kendala',lembur:'Apakah laporan ini mencakup lembur?',jenisAktivitas:'Jenis Aktivitas',tanggalMulaiDandori:'Tanggal Mulai Dandori',tanggalSelesaiDandori:'Tanggal Selesai Dandori',jamMulaiDandori:'Jam Mulai Dandori',jamSelesaiDandori:'Jam Selesai Dandori',tahapDandori:'Tahap Dandori',hasilDandori:'Hasil Dandori',catatanDandori:'Catatan Dandori'};
   Object.keys(aliases).forEach(function(k){fields[aliases[k]]=f[k]||'';});
   ['qtyOk','qtyRepair','qtyReject'].forEach(function(k){fields[aliases[k]]=f[k]===''?'':Number(f[k]);});

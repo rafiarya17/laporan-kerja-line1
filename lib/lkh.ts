@@ -101,9 +101,14 @@ export function validateSubmission(value: unknown, master: Master, now = Date.no
   if (!machine?.options.includes(f.part)) errors.push("Pilih part yang aktif pada mesin ini.");
   if (!f.operator.length || new Set(f.operator).size !== f.operator.length || f.operator.some(o => !c.operators.includes(o))) errors.push("Pilih operator yang valid.");
   if (f.operator.includes("__other_option__")) {
-    const manual = f.operatorLainnya.trim().replace(/\s+/g, " ");
-    if (!manual || manual.length > 100 || /[,;\r\n\x00-\x1f]/.test(f.operatorLainnya)) errors.push("Isi satu nama operator lainnya, maksimal 100 karakter.");
-    if (f.operator.some(o => o !== "__other_option__" && o.trim().replace(/\s+/g, " ").toLowerCase() === manual.toLowerCase())) errors.push("Operator yang sama tidak boleh dipilih dua kali.");
+    const washing = p.line === "LINE_PENCUCIAN";
+    const manual = (washing ? f.operatorLainnya.split(",") : [f.operatorLainnya]).map(name => name.trim().replace(/\s+/g, " "));
+    const invalidCharacters = washing ? /[;\r\n\x00-\x1f]/ : /[,;\r\n\x00-\x1f]/;
+    if (invalidCharacters.test(f.operatorLainnya) || manual.some(name => !name || name.length > 100)) {
+      errors.push(washing ? "Isi nama operator lainnya, pisahkan dengan koma. Maksimal 100 karakter per nama." : "Isi satu nama operator lainnya, maksimal 100 karakter.");
+    }
+    const names = [...f.operator.filter(o => o !== "__other_option__"), ...manual].map(o => o.trim().replace(/\s+/g, " ").toLowerCase());
+    if (new Set(names).size !== names.length) errors.push("Operator yang sama tidak boleh dipilih dua kali.");
   }
   if (p.line === "LINE_8" && !["PRODUKSI", "DANDORI"].includes(f.jenisAktivitas)) errors.push("Pilih jenis aktivitas Line 8.");
   const dandori = p.line === "LINE_8" && f.jenisAktivitas === "DANDORI";

@@ -122,15 +122,15 @@ test('Pencucian keeps the response schema and queues one source row on retry',()
     assert.equal(name,'LKH FORM RESPONSES - LINE PENCUCIAN');
     return source;
   }}:open(id);
-  f.ctx.lkhWebMaster_=()=>({LINE_PENCUCIAN:{operators:['Operator A'],mesin_part_mapping:{PENCUCIAN:{options:['LEAK TEST MUFFLER']}}}});
+  f.ctx.lkhWebMaster_=()=>({LINE_PENCUCIAN:{operators:['Operator A','__other_option__'],mesin_part_mapping:{PENCUCIAN:{options:['LEAK TEST MUFFLER']}}}});
   f.payload.line='LINE_PENCUCIAN';
-  Object.assign(f.payload.form,{mesin:'PENCUCIAN',part:'LEAK TEST MUFFLER',qtyOk:'222',qtyRepair:'20',jumlahSambungan:'2'});
+  Object.assign(f.payload.form,{mesin:'PENCUCIAN',part:'LEAK TEST MUFFLER',qtyOk:'222',qtyRepair:'20',jumlahSambungan:'2',operator:['Operator A','__other_option__'],operatorLainnya:'Helper B, Helper C'});
   const first=f.request('submit');
   assert.equal(first.receipt.state,'QUEUED');
   assert.deepEqual(f.request('submit'),first);
   assert.equal(source.rows.length,2);
   assert.equal(f.source.rows.length,1);
-  assert.deepEqual(Array.from(source.rows[1].slice(2)),['1','Operator A','PENCUCIAN','LEAK TEST MUFFLER','07:30','16:30',
+  assert.deepEqual(Array.from(source.rows[1].slice(2)),['1','Operator A, Helper B, Helper C','PENCUCIAN','LEAK TEST MUFFLER','07:30','16:30',
     222,20,0,'2','Tidak','','','','','','','No','','',f.payload.id]);
   assert.equal(f.queue.rows.length,4);
   const job=JSON.parse(f.queue.rows[3][6]);

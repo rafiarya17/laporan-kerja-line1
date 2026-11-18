@@ -44,7 +44,11 @@ test('Pencucian accepts repair without downtime and validates optional connectio
   const payload=sample();
   payload.line='LINE_PENCUCIAN';
   Object.assign(payload.form,{mesin:'PENCUCIAN',qtyRepair:'20',kendala:'Tidak'});
-  const catalog={LINE_PENCUCIAN:{operators:['Operator A'],mesin_part_mapping:{PENCUCIAN:{options:['PART A']}}}};
+  const catalog={LINE_PENCUCIAN:{operators:['Operator A','__other_option__'],mesin_part_mapping:{PENCUCIAN:{options:['PART A']}}}};
+  payload.form.operator=['Operator A','__other_option__'];
+  payload.form.operatorLainnya='Operator A, Helper B';
+  assert.match(validateSubmission(payload,catalog,now).join(' '),/tidak boleh dipilih dua kali/);
+  payload.form.operatorLainnya='Helper B, Helper C';
   assert.deepEqual(validateSubmission(payload,catalog,now),[]);
   payload.form.jumlahSambungan='__other_option__';
   payload.form.jumlahSambunganLainnya='2.5';
