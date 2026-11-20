@@ -200,3 +200,26 @@ dialog form > .actions { position: sticky; bottom: calc(-1 * var(--dialog-pad));
   .formgrid > label { grid-column: 1/-1; }
   #revisionFields > label:has(input[name=reject]) { grid-column: 1/-1; }
 }
+
+.reportlist { display:grid; gap:5px; }
+.reportlist .card { display:grid; grid-template-columns: minmax(125px,.8fr) minmax(0,1.5fr) minmax(0,1fr) minmax(110px,1fr) auto; align-items:center; gap:6px 12px; padding:9px 12px; border-radius:8px; }
+.reportlist .reporthead,.reportlist .reportmeta,.reportlist .actions { margin:0; padding:0; display:flex; flex-wrap:wrap; gap:4px 8px; }
+.reportlist .part,.reportlist p { margin:0; font-size:14px; overflow-wrap:anywhere; }
+.reportlist .reportmeta span { background:transparent; padding:0; }
+.reportlist .card > small, .reportlist .card > p.small:nth-last-child(3) { display:none; }
+.reportlist .card > .badge.warn { grid-column:1/-1; }
+.reportlist .actions button { flex:auto; padding:6px 10px; }
+.planrow { grid-template-columns:minmax(0,1fr) minmax(85px,110px) minmax(95px,125px) 44px; }
+.planrow .calculation { grid-column:1/-1; }
+.planrow .calculation button { width:auto; padding:4px 10px; }
+@media(max-width:850px){
+ .reportlist .card { grid-template-columns:1fr 1fr; }
+ .reportlist .reporthead,.reportlist .part { grid-column:1/-1; }
+ .reportlist .actions { grid-column:1/-1; }
+}
+@media(max-width:650px){
+ .draftchip.planrow {grid-template-columns:minmax(0,1fr) minmax(0,1fr) 44px;}
+ .draftchip.planrow > span {grid-column:1/3;}
+ .draftchip.planrow > label {grid-column:auto;grid-row:2;}
+ .draftchip.planrow > button {grid-column:3;grid-row:1;}
+}

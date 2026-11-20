@@ -1,3 +1,4 @@
+import {enrichPlanning,savePlanning} from '@/lib/leader-planning';
 import {after} from 'next/server';
 import {remapReviewPart,approveLine4,isLine4Decision,line4ReviewSnapshot} from '@/lib/line4-review';
 import {productionReviewLines,requiresProductionReview,sqlSubmissionEnabled} from '@/lib/sql-intake';
@@ -55,8 +56,13 @@ export async function POST(r:Request){
   return reply({ok:true,results:[...outcomes,...workspace.results]});
  }
  const isPilotSnapshot=pilotEnabled&&body.action==='snapshot'&&(!body.line||requiresProductionReview(body.line))&&body.phase!=='targets';
+ const receiverBody=body.action==='target' && Array.isArray(body.payload?.items)
+  ? {...body,payload:{...body.payload,items:body.payload.items.map((item:{line:string;machine:string;part:string;targetQty:number})=>({
+     line:item.line,machine:item.machine,part:item.part,targetQty:item.targetQty
+    }))}}
+  : body;
  const [result,pilot]=await Promise.all([
-  callReceiver('leader',body,65000),
+  callReceiver('leader',receiverBody,65000),
   isPilotSnapshot ? line4ReviewSnapshot(body.date,body.shift,body.line || '') : null,
  ]);
  const workspace=result.workspace;
@@ -68,6 +74,12 @@ export async function POST(r:Request){
   workspace.data.reports=[...pilot.reports.filter(report=>!existing.has(report.id)),...reports];
   workspace.data.requests=[...workspace.data.requests,...pilot.requests];
   workspace.data.approvalLines=[...new Set([...(workspace.data.approvalLines||[]),...productionReviewLines])];
+ }
+ if(workspace.ok && body.action==='snapshot' && process.env.DATABASE_URL){
+  try { await enrichPlanning(workspace.data); } catch { console.warn('LEADER_PLANNING_READ_UNAVAILABLE'); }
+ }
+ if(workspace.ok && body.action==='target' && Number.isInteger(workspace.result?.version)){
+  await savePlanning(body.payload,workspace.result.version);
  }
  return reply(workspace,workspace.ok?200:409);
  }catch(error){console.warn('LEADER_GATEWAY_ERROR',error instanceof Error?error.message:'UNKNOWN');return reply({ok:false,error:'LEADER_UNCONFIRMED_RETRY_SAME_ID'},503);}

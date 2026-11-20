@@ -15,3 +15,13 @@ test('removed parts, cross-line items and ambiguous names require explicit revie
  const ambiguous={line:'LINE_99',machine:'auto champer',part:'pipe a',targetQty:4};
  assert.deepEqual(targetSelection([ambiguous],[catalog[0],{...catalog[0],part:'Pipe A'}],'LINE_99').invalid,[ambiguous]);
 });
+
+test('target hours calculate full pieces and preserve overrides',()=>{
+ const {planQty}=require('../public/leader-core.js');
+ assert.equal(planQty(1.5,30),180);
+ assert.equal(planQty(1,42),85);
+ assert.equal(planQty(0.29,0.3),3480);
+ for(const ct of [0,null,-1,NaN])assert.equal(planQty(1,ct),null);
+ const plan={...catalog[0],hours:1.5,plannedCt:30,targetQty:160,manualQty:true};
+ assert.deepEqual(targetSelection([plan],catalog,'LINE_99').items,[plan]);
+});
