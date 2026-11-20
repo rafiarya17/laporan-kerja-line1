@@ -3,6 +3,11 @@ import { validateSubmission, type Master, type Submission, type Receipt } from '
 import { callReceiver } from './receiver';
 import { trialMaster } from './sql-preview-master';
 
+export const productionReviewLines = Array.from({length: 8}, (_, index) => "LINE_" + (index + 1));
+export function requiresProductionReview(line: unknown) {
+  return typeof line === "string" && productionReviewLines.includes(line);
+}
+
 export function sqlIntakeEnabled() {
   return ['1','pilot'].includes(process.env.LKH_SQL_INTAKE || '') && Boolean(process.env.DATABASE_URL) &&
     (process.env.VERCEL_ENV === 'production' || process.env.LKH_SQL_PREVIEW === '1');
@@ -46,7 +51,7 @@ export async function submitSqlReport(payload: Submission) {
   const master=await intakeMaster(900);
   const errors=validateSubmission(payload,master.mapping);
   if(errors.length) return {status:400,body:{ok:false,error:errors.join(' '),clearPending:true}};
-  const needsLeader = process.env.VERCEL_ENV === 'production' && payload.line === 'LINE_4';
+  const needsLeader = process.env.VERCEL_ENV === 'production' && requiresProductionReview(payload.line);
   const [saved]=await sql`INSERT INTO lkh_reports(id,payload,master_version,leader_review,next_attempt_at)
     VALUES(${payload.id},${json}::jsonb,${master.version},
       CASE WHEN ${needsLeader} THEN '{}'::jsonb END,

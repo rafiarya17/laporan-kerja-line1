@@ -1,6 +1,7 @@
 import type { Submission } from './lkh';
-import { sqlDatabase } from './sql-intake';
+import { intakeMaster, sqlDatabase } from './sql-intake';
 
+// The submitted payload stays immutable so operator retries retain the same receipt.
 const reportId = /^LKH-[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 const requestId = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 
@@ -26,14 +27,14 @@ export async function approveLine4(command: Command, leaderValue: unknown) {
   const [released] = await sql`UPDATE lkh_reports
     SET leader_review=leader_review || ${actor}::jsonb || jsonb_build_object('approvedAt',clock_timestamp()),
         next_attempt_at=clock_timestamp()
-    WHERE id=${id} AND payload->>'line'='LINE_4' AND leader_review IS NOT NULL
+    WHERE id=${id} AND payload->>'line' ~ '^LINE_[1-8]$' AND leader_review IS NOT NULL
       AND leader_review->>'approvedAt' IS NULL AND delivery_state='PENDING'
-      AND encode(sha256(convert_to(payload::text,'UTF8')),'hex')=${expectedHash}
+      AND encode(sha256(convert_to(payload::text || COALESCE(leader_review->>'deliveryPart',''),'UTF8')),'hex')=${expectedHash}
     RETURNING id`;
   if (!released) {
     const [existing] = await sql`SELECT leader_review AS review,
-      encode(sha256(convert_to(payload::text,'UTF8')),'hex') AS hash
-      FROM lkh_reports WHERE id=${id} AND payload->>'line'='LINE_4' AND leader_review IS NOT NULL`;
+      encode(sha256(convert_to(payload::text || COALESCE(leader_review->>'deliveryPart',''),'UTF8')),'hex') AS hash
+      FROM lkh_reports WHERE id=${id} AND payload->>'line' ~ '^LINE_[1-8]$' AND leader_review IS NOT NULL`;
     if (!existing) return fail('LINE4_APPROVAL_NOT_FOUND');
     if (existing.hash !== expectedHash) return fail('VERSION_CHANGED_REFRESH');
     if (existing.review.requestId !== request) return fail('LINE4_ALREADY_DECIDED');
@@ -42,12 +43,34 @@ export async function approveLine4(command: Command, leaderValue: unknown) {
   return {ok: true as const, result: {id, requestId: request, state: 'LINE4_APPROVED'}};
 }
 
-export async function line4ReviewSnapshot(date: string, shift: string) {
+export async function remapReviewPart(id: string, hash: string, part: string, actor: string) {
+  if (!reportId.test(id) || typeof part !== 'string' || !part || part.length > 500 ||
+      typeof actor !== 'string' || actor.trim().length < 2 || actor.length > 80) return false;
+  const sql = sqlDatabase();
+  const [row] = await sql`SELECT payload, leader_review FROM lkh_reports WHERE id=${id}
+    AND payload->>'line' ~ '^LINE_[1-8]$' AND leader_review IS NOT NULL`;
+  if (!row) return false;
+  const {mapping} = await intakeMaster();
+  const options = mapping[row.payload.line]?.mesin_part_mapping[row.payload.form.mesin]?.options || [];
+  if (!options.includes(part) || options.includes(row.leader_review.deliveryPart || row.payload.form.part)) return false;
+  const [updated] = await sql`UPDATE lkh_reports SET
+    leader_review=(leader_review - 'approvedAt' - 'requestId') || jsonb_build_object(
+      'deliveryPart',${part}::text,'remappedBy',${actor.trim()}::text,'remappedAt',clock_timestamp()),
+    delivery_state='PENDING', last_error=NULL,next_attempt_at='infinity'
+    WHERE id=${id} AND leader_review=${JSON.stringify(row.leader_review)}::jsonb
+    AND encode(sha256(convert_to(payload::text || COALESCE(leader_review->>'deliveryPart',''),'UTF8')),'hex')=${hash}
+    AND ((delivery_state='PENDING' AND leader_review->>'approvedAt' IS NULL)
+      OR (delivery_state='NEEDS_REVIEW' AND last_error='INVALID_MASTER_SELECTION')) RETURNING id`;
+  return Boolean(updated);
+}
+
+export async function line4ReviewSnapshot(date: string, shift: string, line: string) {
   const sql = sqlDatabase();
   const rows = await sql`SELECT id,payload,leader_review AS review,delivery_state,
-    encode(sha256(convert_to(payload::text,'UTF8')),'hex') AS hash
+    encode(sha256(convert_to(payload::text || COALESCE(leader_review->>'deliveryPart',''),'UTF8')),'hex') AS hash
     FROM lkh_reports
-    WHERE leader_review IS NOT NULL AND payload->>'line'='LINE_4'
+    WHERE leader_review IS NOT NULL AND payload->>'line' ~ '^LINE_[1-8]$'
+      AND (${line}::text = '' OR payload->>'line' = ${line})
       AND payload->'form'->>'tanggal'=${date} AND payload->'form'->>'shift'=${shift}
     ORDER BY received_at`;
   const requests = [];
@@ -57,8 +80,8 @@ export async function line4ReviewSnapshot(date: string, shift: string) {
     const approved = Boolean(row.review.approvedAt);
     if (approved) requests.push({ id:row.id, requestId:row.review.requestId, state:'DONE' });
     reports.push({
-      id: row.id, line: 'LINE_4', date, shift, hash: row.hash,
-      machine: form.mesin, part: form.part, reviewSource: 'LINE4_WEB', viewOnly: false,
+      id: row.id, line: row.payload.line, date, shift, hash: row.hash,
+      machine: form.mesin, part: row.review.deliveryPart || form.part, originalPart: form.part, reviewSource: 'LINE4_WEB', viewOnly: false,
       operator: form.operator.map(name=>name==='__other_option__'?form.operatorLainnya:name).join(', '),
       state: !approved?'WAITING_LEADER':row.delivery_state==='NEEDS_REVIEW'?'HELD':'WAITING_TF_SYNC',
       validation: row.delivery_state==='NEEDS_REVIEW'?'Penerusan perlu diperiksa oleh admin.':'',

@@ -1,5 +1,5 @@
 import { after } from "next/server";
-import { sqlIntakeEnabled, sqlSubmissionEnabled, submitSqlReport } from "@/lib/sql-intake";
+import { requiresProductionReview, sqlIntakeEnabled, sqlSubmissionEnabled, submitSqlReport } from "@/lib/sql-intake";
 import { drainSqlDelivery } from "@/lib/sql-delivery";
 import type { Submission } from "@/lib/lkh";
 import {portalPreview,previewBlocked} from '@/lib/portal-preview';
@@ -19,8 +19,8 @@ export async function POST(request: Request) {
     if (new TextEncoder().encode(raw).length > 24000) return fail("Laporan terlalu panjang.", 413);
     let payload: Submission;
     try { payload = JSON.parse(raw); } catch { return fail("Format laporan tidak valid.", 400); }
-    if (process.env.VERCEL_ENV === 'production' && payload?.line === 'LINE_4' && !sqlSubmissionEnabled(payload.line)) {
-      return fail("Penerimaan Line 4 sedang tidak tersedia. Coba lagi dengan ID yang sama.", 503);
+    if (process.env.VERCEL_ENV === 'production' && requiresProductionReview(payload?.line) && !sqlSubmissionEnabled(payload.line)) {
+      return fail("Penerimaan laporan produksi sedang tidak tersedia. Coba lagi dengan ID yang sama.", 503);
     }
     const started=performance.now();
     const result = sqlSubmissionEnabled(payload?.line) ? await submitSqlReport(payload) : await submitReport(payload, request.headers.get("x-lkh-retry") === "1", receiverMode(), callReceiver);

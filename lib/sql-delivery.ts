@@ -5,7 +5,7 @@ import type { Submission } from './lkh';
 
 type ReceiverCall = typeof callReceiver;
 export function deliveryNeedsReview(code: string) {
-  return /CONFLICT|DUPLICATE|REMOVED|CANCELLED|NEEDS_REVIEW|INVALID_SUBMISSION|INVALID_PROCESS_TIME|INVALID_QTY|INVALID_DANDORI|INVALID_STATUS|INVALID_ISSUE_TIME|INCOMPLETE_ISSUE|REPAIR_REJECT_NEEDS_ISSUE/.test(code);
+  return /CONFLICT|DUPLICATE|REMOVED|CANCELLED|NEEDS_REVIEW|INVALID_MASTER_SELECTION|INVALID_SUBMISSION|INVALID_PROCESS_TIME|INVALID_QTY|INVALID_DANDORI|INVALID_STATUS|INVALID_ISSUE_TIME|INCOMPLETE_ISSUE|REPAIR_REJECT_NEEDS_ISSUE/.test(code);
 }
 export async function forwardSqlReport(payload: Submission, call: ReceiverCall = callReceiver) {
   // Receiver submit is idempotent. A timeout after its commit is retried with the same payload and ID.
@@ -29,11 +29,15 @@ export async function drainSqlDelivery(budgetMs=55000, call: ReceiverCall=callRe
     while(Date.now()-start<budgetMs-25000) {
       const [owned]=await sql`UPDATE lkh_delivery_worker SET lease_until=now()+interval '100 seconds' WHERE id=true AND owner=${owner}::uuid AND lease_until>now() RETURNING id`;
       if(!owned) break;
-      const [job]=await sql`SELECT id,payload FROM lkh_reports WHERE delivery_state='PENDING' AND (leader_review IS NULL OR leader_review->>'approvedAt' IS NOT NULL) AND next_attempt_at<=now() ORDER BY next_attempt_at,received_at LIMIT 1`;
+      const [job]=await sql`SELECT id,payload,leader_review FROM lkh_reports WHERE delivery_state='PENDING' AND (leader_review IS NULL OR leader_review->>'approvedAt' IS NOT NULL) AND next_attempt_at<=now() ORDER BY next_attempt_at,received_at LIMIT 1`;
       if(!job) break;
       await sql`UPDATE lkh_reports SET attempts=attempts+1,next_attempt_at=now()+interval '100 seconds' WHERE id=${job.id}`;
       try {
-        const receipt=await forwardSqlReport(job.payload as Submission,call);
+        const original = job.payload as Submission;
+        const payload = job.leader_review?.deliveryPart
+          ? {...original, form: {...original.form, part: job.leader_review.deliveryPart}}
+          : original;
+        const receipt=await forwardSqlReport(payload,call);
         await sql`UPDATE lkh_reports SET delivery_state='DELIVERED',downstream_receipt=${JSON.stringify(receipt)}::jsonb,delivered_at=clock_timestamp(),last_error=NULL WHERE id=${job.id}`;
         delivered++;
       } catch(error) {

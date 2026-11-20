@@ -1,6 +1,6 @@
 import {after} from 'next/server';
-import {approveLine4,isLine4Decision,line4ReviewSnapshot} from '@/lib/line4-review';
-import {sqlSubmissionEnabled} from '@/lib/sql-intake';
+import {remapReviewPart,approveLine4,isLine4Decision,line4ReviewSnapshot} from '@/lib/line4-review';
+import {productionReviewLines,requiresProductionReview,sqlSubmissionEnabled} from '@/lib/sql-intake';
 import {drainSqlDelivery} from '@/lib/sql-delivery';
 import {callReceiver, receiverMode, receiverReady} from '@/lib/receiver';
 import {portalPreview,previewWorkspace,previewBlocked,previewHeaders} from '@/lib/portal-preview';
@@ -28,8 +28,13 @@ export async function POST(r:Request){
  if(Number(r.headers.get('content-length')||0)>26000)return reply({ok:false,error:'REQUEST_TOO_LARGE'},413);
  const text=await r.text();if(Buffer.byteLength(text)>26000)return reply({ok:false,error:'REQUEST_TOO_LARGE'},413);
  let body;try{body=JSON.parse(text);}catch{return reply({ok:false,error:'INVALID_JSON'},400);}
- if(!['snapshot','target','submit','decide','decideBatch','revisionDetail','reviseProduction'].includes(body?.action))return reply({ok:false,error:'INVALID_ACTION'},400);
+ if(!['snapshot','target','submit','decide','decideBatch','revisionDetail','reviseProduction','remapReviewPart'].includes(body?.action))return reply({ok:false,error:'INVALID_ACTION'},400);
  const pilotEnabled=process.env.VERCEL_ENV==='production' && sqlSubmissionEnabled('LINE_4');
+ if(body.action==='remapReviewPart'){
+  const cmd=body.payload;
+  const ok=pilotEnabled && cmd && await remapReviewPart(cmd.id,cmd.expectedHash,cmd.part,body.leader);
+  return reply(ok?{ok:true}:{ok:false,error:'VERSION_CHANGED_REFRESH'},ok?200:409);
+ }
  if(pilotEnabled && body.action==='decide' && isLine4Decision(body.payload)){
   const outcome=await approveLine4(body.payload,body.leader);
   if(outcome.ok) scheduleDelivery();
@@ -49,19 +54,20 @@ export async function POST(r:Request){
   if(!workspace?.ok||!Array.isArray(workspace.results)) return reply({ok:false,error:'LEADER_UNCONFIRMED_RETRY_SAME_ID'},503);
   return reply({ok:true,results:[...outcomes,...workspace.results]});
  }
- const isPilotSnapshot=pilotEnabled&&body.action==='snapshot'&&(!body.line||body.line==='LINE_4')&&body.phase!=='targets';
+ const isPilotSnapshot=pilotEnabled&&body.action==='snapshot'&&(!body.line||requiresProductionReview(body.line))&&body.phase!=='targets';
  const [result,pilot]=await Promise.all([
   callReceiver('leader',body,65000),
-  isPilotSnapshot ? line4ReviewSnapshot(body.date,body.shift) : null,
+  isPilotSnapshot ? line4ReviewSnapshot(body.date,body.shift,body.line || '') : null,
  ]);
  const workspace=result.workspace;
  if(typeof workspace?.ok!=='boolean')return reply({ok:false,error:'LEADER_UNCONFIRMED'},503);
+ if(workspace.ok && pilotEnabled && body.action==='snapshot' && body.phase==='targets' && (!body.line || requiresProductionReview(body.line))) workspace.data.reportsLoaded=false;
  if(workspace.ok&&pilot){
   const reports=workspace.data.reports;
   const existing=new Set(reports.map((report:{id:string})=>report.id));
   workspace.data.reports=[...pilot.reports.filter(report=>!existing.has(report.id)),...reports];
   workspace.data.requests=[...workspace.data.requests,...pilot.requests];
-  workspace.data.approvalLines=[...new Set([...(workspace.data.approvalLines||[]),'LINE_4'])];
+  workspace.data.approvalLines=[...new Set([...(workspace.data.approvalLines||[]),...productionReviewLines])];
  }
  return reply(workspace,workspace.ok?200:409);
  }catch(error){console.warn('LEADER_GATEWAY_ERROR',error instanceof Error?error.message:'UNKNOWN');return reply({ok:false,error:'LEADER_UNCONFIRMED_RETRY_SAME_ID'},503);}
