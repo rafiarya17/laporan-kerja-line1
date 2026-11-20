@@ -1,4 +1,4 @@
-import type { Submission } from './lkh';
+import { validateSubmission, type Submission } from './lkh';
 import { intakeMaster, sqlDatabase } from './sql-intake';
 
 // The submitted payload stays immutable so operator retries retain the same receipt.
@@ -9,7 +9,14 @@ export function isLine4Decision(command: {id?: unknown} | null | undefined) {
   return typeof command?.id === 'string' && reportId.test(command.id);
 }
 
-type Command = {id: string; requestId: string; expectedHash: string; decision: string; reason: string};
+type Command = {id: string; requestId: string; expectedHash: string; decision: string; reason: string; fields?: Record<string,string>};
+
+const productionFields = ['qtyOk','qtyRepair','qtyReject','jamMulaiProses','jamSelesaiProses','lembur','kendala','kendala4M','permasalahan','tindakan','pic','jamMulaiKendala','jamSelesaiKendala'] as const;
+const dandoriFields = ['tahapDandori','hasilDandori','catatanDandori'] as const;
+const editable: readonly string[] = [...productionFields,...dandoriFields];
+function reviewFields(form: Submission['form']) {
+  return form.jenisAktivitas==='DANDORI'?dandoriFields:productionFields;
+}
 
 export async function approveLine4(command: Command, leaderValue: unknown) {
   const { id, expectedHash } = command;
@@ -23,7 +30,24 @@ export async function approveLine4(command: Command, leaderValue: unknown) {
   if (reason.length < 5 || reason.length > 500 || /[\x00-\x1f]/.test(reason) || /^[=+@-]/.test(reason)) return fail('REASON_REQUIRED');
 
   const sql = sqlDatabase();
-  const actor = JSON.stringify({ requestId: request, leader, reason });
+  const edits = command.fields;
+  if (edits !== undefined && (!edits || typeof edits !== 'object' || Array.isArray(edits) ||
+      !Object.keys(edits).length || Object.entries(edits).some(([k,v])=>!editable.includes(k)||typeof v!=='string'||v.length>3000))) return fail('INVALID_CORRECTION');
+  let corrected;
+  if (edits) {
+    const [row]=await sql`SELECT payload,leader_review AS review FROM lkh_reports
+      WHERE id=${id} AND payload->>'line' ~ '^LINE_[1-8]$' AND leader_review IS NOT NULL`;
+    if(!row)return fail('LINE4_APPROVAL_NOT_FOUND');
+    if(!row.review.approvedAt){
+      const allowed: readonly string[]=reviewFields(row.payload.form);
+      if(Object.keys(edits).some(k=>!allowed.includes(k)))return fail('INVALID_CORRECTION');
+      corrected={...row.review.corrected,...edits};
+      const form={...row.payload.form,...corrected,part:row.review.deliveryPart||row.payload.form.part};
+      const errors=validateSubmission({...row.payload,form},(await intakeMaster()).mapping);
+      if(errors.length)return fail(errors.join(' '));
+    }
+  }
+  const actor = JSON.stringify({ requestId: request, leader, reason, requestEdits: edits??null, corrected });
   const [released] = await sql`UPDATE lkh_reports
     SET leader_review=leader_review || ${actor}::jsonb || jsonb_build_object('approvedAt',clock_timestamp()),
         next_attempt_at=clock_timestamp()
@@ -38,7 +62,7 @@ export async function approveLine4(command: Command, leaderValue: unknown) {
     if (!existing) return fail('LINE4_APPROVAL_NOT_FOUND');
     if (existing.hash !== expectedHash) return fail('VERSION_CHANGED_REFRESH');
     if (existing.review.requestId !== request) return fail('LINE4_ALREADY_DECIDED');
-    if (existing.review.leader !== leader || existing.review.reason !== reason) return fail('REQUEST_ID_CONFLICT');
+    if (existing.review.leader !== leader || existing.review.reason !== reason || editable.some(k=>existing.review.requestEdits?.[k]!==edits?.[k])) return fail('REQUEST_ID_CONFLICT');
   }
   return {ok: true as const, result: {id, requestId: request, state: 'LINE4_APPROVED'}};
 }
@@ -76,7 +100,7 @@ export async function line4ReviewSnapshot(date: string, shift: string, line: str
   const requests = [];
   const reports = [];
   for (const row of rows) {
-    const { form } = row.payload as Submission;
+    const form = {...row.payload.form,...row.review.corrected} as Submission['form'];
     const approved = Boolean(row.review.approvedAt);
     if (approved) requests.push({ id:row.id, requestId:row.review.requestId, state:'DONE' });
     reports.push({
@@ -85,6 +109,7 @@ export async function line4ReviewSnapshot(date: string, shift: string, line: str
       operator: form.operator.map(name=>name==='__other_option__'?form.operatorLainnya:name).join(', '),
       state: !approved?'WAITING_LEADER':row.delivery_state==='NEEDS_REVIEW'?'HELD':'WAITING_TF_SYNC',
       validation: row.delivery_state==='NEEDS_REVIEW'?'Penerusan perlu diperiksa oleh admin.':'',
+      reviewFields:Object.fromEntries(reviewFields(form).map(k=>[k,form[k]])),
       input: {ok:Number(form.qtyOk),repair:Number(form.qtyRepair),reject:Number(form.qtyReject),
         start:form.jamMulaiProses,end:form.jamSelesaiProses,overtime:form.lembur,problem:form.permasalahan,action:form.tindakan},
     });

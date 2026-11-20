@@ -19,6 +19,7 @@
     "lib/champer-telemetry.ts",
     "lib/sql-intake.ts",
     "lib/sql-delivery.ts",
+    "lib/line4-review.ts",
     "lib/welding-mart.ts",
     "lib/champer-live-work.ts",
     "lib/sql-preview-master.ts"

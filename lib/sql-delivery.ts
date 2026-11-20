@@ -34,8 +34,8 @@ export async function drainSqlDelivery(budgetMs=55000, call: ReceiverCall=callRe
       await sql`UPDATE lkh_reports SET attempts=attempts+1,next_attempt_at=now()+interval '100 seconds' WHERE id=${job.id}`;
       try {
         const original = job.payload as Submission;
-        const payload = job.leader_review?.deliveryPart
-          ? {...original, form: {...original.form, part: job.leader_review.deliveryPart}}
+        const payload = job.leader_review?.deliveryPart || job.leader_review?.corrected
+          ? {...original, form: {...original.form,...job.leader_review.corrected, part: job.leader_review.deliveryPart || original.form.part}}
           : original;
         const receipt=await forwardSqlReport(payload,call);
         await sql`UPDATE lkh_reports SET delivery_state='DELIVERED',downstream_receipt=${JSON.stringify(receipt)}::jsonb,delivered_at=clock_timestamp(),last_error=NULL WHERE id=${job.id}`;
