@@ -8,6 +8,7 @@ element('source').value = params.get('source') === 'example' ? 'example' : 'lead
 let preferredLine = params.has('line') ? params.get('line') : 'LINE_99';
 let preferredMachine = params.has('machine') ? params.get('machine') : 'AUTO CHAMPER';
 element('search').value = params.get('part') || '';
+let targetsLoaded = false;
 let items = [], epoch = 0, controller, plcPilotReady = false;
 let cloudJobs=null,historyMessage='Riwayat Champer belum dimuat.';
 fetch('/api/champer/capabilities',{cache:'no-store'}).then(r=>r.json()).then(c=>{plcPilotReady=c.enabled===true;render();}).catch(()=>{});
@@ -47,9 +48,9 @@ function render() {
   const visible = items.filter(item => (!element('line').value || item.line === element('line').value) && (!element('machine').value || item.machine === element('machine').value) && (item.part+' '+item.machine).toLocaleLowerCase('id-ID').includes(query));
   const cards = element('cards');
   cards.replaceChildren();
-  element('count').textContent = visible.length + ' pekerjaan';
+  element('count').textContent = targetsLoaded ? visible.length + ' pekerjaan' : '';
   element('context').textContent = element('date').value + ' · Shift ' + element('shift').value;
-  if (!visible.length) text(cards,'p','Tidak ada target yang cocok. Periksa tanggal, shift, atau filter Anda.','empty');
+  if (targetsLoaded && !visible.length) text(cards,'p','Tidak ada target yang cocok. Periksa tanggal, shift, atau filter Anda.','empty');
   for (const item of visible) {
     const card = text(cards,'article','','panel job');
     text(card,'span',(item.line === 'LINE_99' ? 'Line 99 · Uji' : item.line.replace('LINE_','Line '))+' · Shift '+item.shift,'hint');
@@ -86,10 +87,11 @@ function render() {
 async function load() {
   const current = ++epoch;
   controller?.abort(); controller = new AbortController();
+  targetsLoaded = false;
   items = []; options('line',[],'Semua line'); filterMachines(); render();
   element('notice').textContent = '';
   const date = element('date').value, shift = element('shift').value;
-  if (!date) { element('notice').textContent = 'Pilih tanggal produksi.'; return; }
+  if (!date) { element('reload').disabled = false; element('notice').textContent = 'Pilih tanggal produksi.'; return; }
   const example = element('source').value === 'example';
   element('source-note').textContent = example ? 'Target contoh untuk mencoba alur beberapa line dan mesin.' : 'Membaca target yang disimpan leader untuk tanggal dan shift terpilih.';
   element('reload').disabled = true;
@@ -105,6 +107,7 @@ async function load() {
       items = body.data.targets.flatMap(target => (target.items || []).map(item => ({date,shift,line:target.line,machine:item.machine,part:item.part,targetQty:item.targetQty,version:target.version,source:'LIVE_READ_ONLY'})));
       element('notice').textContent = 'Target leader berhasil dimuat.';
     }
+    targetsLoaded = true;
     options('line',items.map(item => item.line),'Semua line');
     if (preferredLine) {
       if (![...element('line').options].some(option => option.value === preferredLine)) element('line').add(new Option(preferredLine.replace('LINE_','Line '),preferredLine));

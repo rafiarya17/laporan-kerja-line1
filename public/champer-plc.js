@@ -147,7 +147,7 @@ document.addEventListener('change',preserveSessionDraft);
 el('operators').addEventListener('change',()=>window.PortalDraft?.set(operatorDraftKey(),[...el('operators').querySelectorAll('input:checked')].map(x=>x.value)));
 window.addEventListener('pagehide',()=>{preserveSessionDraft();clearTimeout(timer);});
 document.addEventListener('visibilitychange',()=>{if(document.hidden){clearTimeout(timer);preserveSessionDraft();}else refresh();});
-el('refresh').onclick=()=>{if(requested)void loadSelectedTarget();void refresh();};el('retry').onclick=()=>send(pending);
+el('refresh').onclick=()=>{void loadOperators();if(requested)void loadSelectedTarget();void refresh();};el('retry').onclick=()=>send(pending);
 for(const id of ['history-date','history-shift','history-status','history-search'])el(id).oninput=renderHistory;
 el('pair').onclick=async()=>{try{await call('pair',{code:el('pair-code').value.trim()});el('pair-code').value='';notice('Tablet terpasang.');await refresh();}catch(e){notice(e.message);}};
 el('prepare').onclick=()=>{const operators=[...document.querySelectorAll('#operators input:checked')].map(x=>x.value);const {date,shift,line,machine,part,version,targetQty}=selected;send({action:'prepare',requestId:crypto.randomUUID(),target:{date,shift,line,machine,part,version,targetQty},operators});};
@@ -157,4 +157,27 @@ el('save-quality').onclick=()=>act('quality',{quality:Object.fromEntries(['ok','
 el('issue').onchange=()=>{el('issue-fields').hidden=el('issue').value!=='Ada';};
 el('export').onclick=()=>{const url=URL.createObjectURL(new Blob([JSON.stringify(snapshot,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='champer-cloud-pilot.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),5000);};
 void loadSelectedTarget();
-(async()=>{try{const r=await andonFetch('/api/master',{cache:'no-store'}),m=await r.json();if(m.ready&&m.source==='live'){for(const name of m.mapping.LINE_99.operators.filter(x=>x!=='__other_option__')){const label=document.createElement('label');label.className='check';const input=document.createElement('input');input.type='checkbox';input.value=name;input.checked=(window.PortalDraft?.get(operatorDraftKey())||[]).includes(name);label.append(input,document.createTextNode(name));el('operators').append(label);}masterReady=true;}}catch{}await refresh();})();
+let loadingOperators=false;
+async function loadOperators(){
+ if(masterReady||loadingOperators)return;
+ loadingOperators=true;
+ el('operator-status').textContent='Memuat daftar operator…';
+ try{
+  const response=await andonFetch('/api/master',{cache:'no-store'});
+  const master=await response.json();
+  const names=master.mapping?.LINE_99?.operators?.filter(name=>name!=='__other_option__');
+  if(!response.ok||!master.ready||master.source!=='live'||!names?.length)throw Error();
+  const fields=document.createDocumentFragment();
+  const saved=window.PortalDraft?.get(operatorDraftKey())||[];
+  for(const name of names){
+   const label=document.createElement('label');label.className='check';
+   const input=document.createElement('input');input.type='checkbox';input.value=name;input.checked=saved.includes(name);
+   label.append(input,document.createTextNode(name));fields.append(label);
+  }
+  el('operators').append(fields);masterReady=true;
+  el('operator-status').textContent='';
+ }catch{el('operator-status').textContent='Daftar operator belum termuat. Tekan Muat ulang untuk mencoba lagi.';}
+ finally{loadingOperators=false;if(snapshot)display();}
+}
+void loadOperators();
+void refresh();

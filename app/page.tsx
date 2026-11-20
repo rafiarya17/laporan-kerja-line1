@@ -41,7 +41,7 @@ export default function LaporanKerjaForm() {
   const [toast, setToast] = useState<{ type: "success" | "error"; msg: string } | null>(null);
 
   const [mapping, setMapping] = useState<Master>(SNAPSHOT);
-  const [connection, setConnection] = useState<{ready: boolean; mode: string; source: string}>({ready: false, mode: "test", source: "loading"});
+  const [connection, setConnection] = useState<{ready: boolean; mode: string; source: string}>({ready: false, mode: "unknown", source: "loading"});
   const [pending, setPending] = useState<Submission | null>(null);
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [storageAvailable, setStorageAvailable] = useState(true);
@@ -49,13 +49,25 @@ export default function LaporanKerjaForm() {
   const [hydrated, setHydrated] = useState(false);
   const inFlight = useRef(false);
 
+  const [masterAttempt, setMasterAttempt] = useState(0);
   useEffect(() => {
-    fetch("/api/master", {cache: "no-store"}).then(r => r.json()).then(result => {
+    const controller = new AbortController();
+    let active = true;
+    const timer = window.setTimeout(() => controller.abort(), 25000);
+    setConnection(previous => ({...previous, ready: false, source: "loading"}));
+    fetch("/api/master", {cache: "no-store", signal: controller.signal}).then(r => r.json()).then(result => {
+      if (!active) return;
       if (!result.mapping || !Object.keys(result.mapping).length) throw Error();
       setMapping(result.mapping);
       if (result.source === "sql-preview") setLineSelected(current => Object.hasOwn(result.mapping, current) ? current : "LINE_99");
       setConnection({ready: result.ready === true, mode: result.mode, source: result.source});
-    }).catch(() => setConnection({ready: false, mode: "test", source: "offline"}));
+    }).catch(() => {
+      if (active) setConnection(previous => ({...previous, ready: false, source: "offline"}));
+    }).finally(() => window.clearTimeout(timer));
+    return () => { active = false; window.clearTimeout(timer); controller.abort(); };
+  }, [masterAttempt]);
+
+  useEffect(() => {
     try {
       const savedPending = localStorage.getItem(PENDING_KEY);
       if (savedPending) {
@@ -293,7 +305,7 @@ export default function LaporanKerjaForm() {
 
 
         <div className="bg-white border border-blue-200 rounded-2xl p-5 mb-6 text-slate-800 space-y-3" role="status">
-          <p className="font-bold">{connection.mode === "production" ? "Laporan operasional" : "Versi pengujian • tidak masuk TF Slip produksi"}</p>
+          <p className="font-bold">{connection.mode === "test" ? "Versi pengujian • tidak masuk TF Slip produksi" : connection.mode === "production" ? "Laporan operasional" : "Form laporan kerja"}</p>
           <p className="text-sm">{connection.ready ? "Master terhubung. Pengiriman menunggu konfirmasi penyimpanan." : connection.source === "loading" ? "Memeriksa koneksi penerima…" : "Penerima belum siap. Kamu bisa mencoba isian; pengiriman dinonaktifkan."}</p>
           {!["live", "sql-master", "sql-preview"].includes(connection.source) && <p className="text-sm text-amber-800">Dropdown menggunakan salinan master. Sinkronisasi langsung tersedia setelah penerima dihubungkan.</p>}
           {!storageAvailable && <p className="text-sm text-red-700">Penyimpanan browser tidak tersedia. Aktifkan sebelum mengirim laporan.</p>}
@@ -732,15 +744,17 @@ export default function LaporanKerjaForm() {
                 <p className="mb-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-950">Penyimpanan belum terkonfirmasi. Pilih <strong>Coba Kirim Ulang</strong> untuk melanjutkan laporan yang sama.</p>
               ) : null}
             </div>
-            <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
+            <div className="max-w-4xl mx-auto flex flex-wrap items-center justify-between gap-4">
               <div className="hidden sm:block text-xs text-gray-500 leading-tight">
                 <span className="font-bold text-blue-800">{lineSelected.replace("_", " ")}</span>
                 {isLine8 && formData.jenisAktivitas && <> • {formData.jenisAktivitas}</>}
                 {formData.operator.length > 0 && <> • {formData.operator.length} operator</>}
               </div>
+              {!connection.ready && connection.source !== "loading" && !pending &&
+                <button type="button" className="rounded-xl border px-4 py-3 font-bold" onClick={() => setMasterAttempt(n => n + 1)}>Muat ulang master</button>}
               <button type="submit" aria-busy={isSubmitting} disabled={isSubmitting || (!connection.ready && !pending) || !storageAvailable}
                 className="w-full sm:w-auto px-10 py-3.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-extrabold text-lg shadow-lg shadow-orange-200 transition-all disabled:opacity-70 disabled:cursor-not-allowed">
-                {isSubmitting ? "Sedang mengirim…" : (pending ? "Coba Kirim Ulang" : connection.mode === "test" ? "Kirim Data Uji" : "Kirim Laporan")}
+                {isSubmitting ? "Sedang mengirim…" : (pending ? "Coba Kirim Ulang" : !connection.ready ? "Menunggu koneksi" : connection.mode === "test" ? "Kirim Data Uji" : "Kirim Laporan")}
               </button>
             </div>
           </div>
