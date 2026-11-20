@@ -1,7 +1,7 @@
 import {ChamperError,fail,operatorAction,poll,result,view,Target,Evidence,validateTarget,uuid} from '@/lib/champer-core';
 import {redisStore} from '@/lib/champer-store';
 import {telemetryStore,validateTelemetry} from '@/lib/champer-telemetry';
-import {shiftWork} from '@/lib/champer-live-work';
+import {shiftWork,liveBoard} from '@/lib/champer-live-work';
 import {portalPreview,previewBlocked} from '@/lib/portal-preview';
 import {equal,issueCookie,validCookie} from '@/lib/champer-auth';
 import {callReceiver,receiverMode,receiverReady} from '@/lib/receiver';
@@ -40,6 +40,11 @@ async function handle(r:Request){
   const path=new URL(r.url).pathname.split('/').at(-1);
   if(r.method==='GET'&&path==='capabilities')return Response.json({enabled:!!ready(),machine:'AUTO_CHAMPER',mode:'PLC_PILOT',reportsEnabled:ready()&&process.env.CHAMPER_REPORT_ENABLED==='1',plcWrites:false,productionUsable:false},{headers});
   if(!ready())fail('CLOUD_BRIDGE_NOT_CONFIGURED',503);
+  if(r.method==='GET'&&path==='live-board'){
+    tablet(r);
+    const {state,telemetry}=await store().readBoard();
+    return Response.json(liveBoard(state,telemetry,Date.now()),{headers});
+  }
   if(r.method==='GET'&&path==='live-work'){tablet(r);return Response.json(shiftWork(await store().read(),Date.now()),{headers});}
   if(r.method==='GET'&&path==='telemetry'){tablet(r);const c=config();return Response.json({serverTime:Date.now(),telemetry:await telemetryStore(c.url,c.token).get(),machine:'AUTO_CHAMPER',line:'LINE_99',plcFreshness:'UNVERIFIED'},{headers});}
   if(r.method==='GET'&&path==='state'){tablet(r);const state=await store().transaction(s=>view(s,Date.now()));return Response.json(state,{headers});}

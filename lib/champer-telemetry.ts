@@ -1,5 +1,6 @@
 import {fail} from './champer-core';
 import {workShift} from './welding-shift';
+export const TELEMETRY_KEY='berlindo:champer:pilot:telemetry:v1';
 export type Reading={eventId:string;value:number;observedAt:number};
 export type ShiftCounter={date:string;shift:number;collector:string;firstAt:number;firstValue:number;lastAt:number;lastValue:number;review:boolean};
 export type Telemetry={shiftCounter?:ShiftCounter|null;sentAt:number;receivedAt:number;readingReceivedAt:number|null;localReady:boolean;reading:Reading|null;status:string};
@@ -49,7 +50,7 @@ redis.call('SET',KEYS[1],cjson.encode(incoming))
 return 1`;
 export function telemetryStore(url:string,token:string,request:typeof fetch=fetch){
  const u=new URL(url);if(u.protocol!=='https:'||!u.hostname.endsWith('.upstash.io')||u.pathname!=='/'||u.search||u.username)fail('DATABASE_CONFIGURATION_INVALID',503);
- const key='berlindo:champer:pilot:telemetry:v1';
+ const key=TELEMETRY_KEY;
  async function command(args:unknown[]){const r=await request(url,{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(args),cache:'no-store',redirect:'error',signal:AbortSignal.timeout(8000)});if(!r.ok)fail('DATABASE_UNAVAILABLE',503);const b=await r.json();if(b.error)fail('DATABASE_UNAVAILABLE',503);return b.result;}
  return {async put(t:Telemetry,collector:string){const period=workShift(new Date(t.receivedAt));
    const from=Date.parse(period.date+(period.shift===1?'T07:30':'T19:30')+':00+07:00');
