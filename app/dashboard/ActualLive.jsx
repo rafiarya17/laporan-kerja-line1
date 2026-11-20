@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { fmt } from './metrics';
+import {Dot, FloorPlan, MachineDialog} from './LiveFloor';
 
 const time = new Intl.DateTimeFormat('id-ID', {timeZone:'Asia/Jakarta',dateStyle:'medium',timeStyle:'short'});
 const hour = new Intl.DateTimeFormat('id-ID', {timeZone:'Asia/Jakarta',hour:'2-digit',minute:'2-digit'});
@@ -40,12 +41,17 @@ function endedLabel(job,now){
   const age=now-job.endedAt;
   return age>=0&&age<=600000?'Pekerjaan baru selesai':'Pekerjaan selesai';
 }
-function SessionResult({output,paired,failed,now}){
+function sessionSummary(output,paired,failed,now){
   const session=output?.session,previous=output?.lastEnded;
   const job=session??previous;
   const ended=job?.endedAt!=null;
   const state=ended?endedLabel(job,now):(sessionLabels[job?.state]??(paired?'Perlu pemasangan browser':output?'Menunggu Mulai pekerjaan':'Menunggu data sesi'));
   const count=ended?(job.endDelta??job.observedEnd):job?.count?.value;
+  const phase=failed&&job?'Status terakhir · '+state:state;
+  return {session,previous,job,ended,phase,count};
+}
+function SessionResult({summary,output,paired,failed,now}){
+  const {session,previous,job,ended,phase,count}=summary;
   let note='Counter awal akan dicatat saat operator memulai pekerjaan.';
   if(ended){
     note='Diakhiri '+time.format(job.endedAt)+' WIB';
@@ -60,7 +66,7 @@ function SessionResult({output,paired,failed,now}){
   }else if(!output)note=paired?'Pasangkan browser untuk melihat aktual pekerjaan.':failed?'Data sesi belum dapat dimuat.':'Memuat sesi pekerjaan…';
   return <div className="champer-session" aria-label="Hasil pekerjaan Champer">
     <div className="champer-session-heading"><span>{ended?'Hasil akhir pekerjaan':'Aktual pekerjaan sejak Mulai'}</span>
-      <b className="champer-phase" data-tone={failed?'waiting':ended?(job.state.includes('REVIEW')?'review':'ended'):job?.state==='ACTIVE'?'active':'waiting'}>{failed && job?'Status terakhir · ':''}{state}</b></div>
+      <b className="champer-phase" data-tone={failed?'waiting':ended?(job.state.includes('REVIEW')?'review':'ended'):job?.state==='ACTIVE'?'active':'waiting'}>{phase}</b></div>
     <strong className="champer-session-count">{fmt(count)} {count!=null&&<small>hitungan</small>}</strong>
     {job&&<p><b>{job.part}</b> · Target pekerjaan {fmt(job.targetQty)} pcs OK · Shift {job.shift} · {job.date}</p>}
     <p>{note}</p>
@@ -72,7 +78,8 @@ function Metric({label,value,unit,note}){
   return <div className="champer-metric"><span>{label}</span><strong>{fmt(value)} {value!=null&&<small>{unit}</small>}</strong><p>{note}</p></div>;
 }
 
-export function ActualLive({date,shift}){
+export function ActualLive({date,shift,machines}){
+  const [selected,setSelected]=useState(null);
   const targets=useFeed('/api/dashboard/champer-target',60000,72000);
   const board=useFeed('/api/champer/live-board',5000,10000);
   const inPeriod=x=>x?.date===date&&x.shift===shift;
@@ -95,10 +102,31 @@ export function ActualLive({date,shift}){
     plan?(plan.parts.length?plan.parts.length+' part ditargetkan':'Belum ada target leader'):'Memuat target leader…';
   const outputNote=board.status==='error'?(output?'Hasil terakhir · gagal memperbarui':'Hasil sesi belum dapat dimuat'):
     output?(output.completed?output.completed+' sesi selesai':'Belum ada sesi selesai'):pair?'Perlu pemasangan browser':'Memuat hasil sesi…';
-  return <div className="field-live"><section className="zone pilot-zone">
-    <header><h3>Line 99 Uji</h3><span>Shift {shift} · {date}</span></header>
-    <h2>AUTO CHAMPER</h2>
-    <SessionResult output={output} paired={pair} failed={board.status==='error'} now={cloud?.serverTime??Date.now()}/>
+  const status=fresh?'received':pair||!reading?'waiting':'stale';
+  const statusLabel=fresh?'Data D100 diterima':pair?'Perlu pemasangan':status==='stale'?'Data terakhir':'Menunggu data';
+  const floor=useMemo(()=>machines.map(m=>m.line===99?{...m,status,statusLabel}:{...m,status:'unlinked'}),[machines,status,statusLabel]);
+  const chosen=floor.find(m=>m.id===selected);
+  const now=cloud?.serverTime??Date.now();
+  const summary=sessionSummary(output,pair,board.status==='error',now);
+  const {job,ended,phase,count}=summary;
+  const part=job?.part??(plan?.parts.length?plan.parts.map(p=>p.part).join(' · '):planNote);
+  return <>
+    <div className="map-summary"><div className="legend"><span><Dot state="received"/><b>1</b> mesin dengan integrasi PLC</span>
+      <span><Dot state="unlinked"/><b>{floor.length-1}</b> belum terintegrasi</span></div></div>
+    <FloorPlan machines={floor} select={setSelected} pilotCard={<>
+      <span className="pilot-label"><b>AUTO CHAMPER</b><span className={'pilot-signal '+status}><Dot state={status}/>{statusLabel}</span></span>
+      <span className="pilot-phase">{phase}{ended&&' · '+time.format(job.endedAt)+' WIB'}</span>
+      <span className="pilot-count">{fmt(count)} <small>hitungan {ended?'akhir':'sesi'}</small></span>
+      <span className="pilot-target">Target leader · Shift {shift} · {fmt(plan?.parts.length?plan.total:null)} pcs OK</span>
+      {job&&<span className="pilot-part">Target sesi · {fmt(job.targetQty)} pcs OK{(job.date!==date||Number(job.shift)!==shift)&&' · '+job.date+' · Shift '+job.shift}</span>}
+      <span className="pilot-part" title={part}>{part}</span>
+      {reading&&<span className="pilot-part">D100 terakhir · {fmt(reading.value)} · {hour.format(reading.observedAt)} WIB</span>}
+    </>}/>
+    {chosen&&<MachineDialog machine={chosen} close={()=>setSelected(null)} note={chosen.line===99?
+      'D100 mencatat hitungan sesi. Ketiga persentase menunggu data waktu produksi terencana, durasi mesin berjalan, serta waktu siklus dan jumlah pcs per hitungan yang terverifikasi.':
+      'Mesin ini belum mengirim data ke Monitor Live. Metrik sesi tersedia setelah durasi mesin dan hasil produksi dapat diukur.'}>
+    {chosen.line===99?<div className="champer-detail">
+    <SessionResult summary={summary} output={output} paired={pair} failed={board.status==='error'} now={now}/>
     <div className="champer-metrics">
       <Metric label="Target OK leader · shift" value={plan?.parts.length?plan.total:null} unit="pcs" note={planNote}/>
       <Metric label="OK dilaporkan operator · shift" value={output?.ok} unit="pcs" note={outputNote}/>
@@ -108,5 +136,7 @@ export function ActualLive({date,shift}){
     <p><b>Counter D100 terakhir</b> · {fmt(reading?.value)}{reading&&' · '+time.format(reading.observedAt)+' WIB'}</p>
     <p role="status">{signalLabel}</p>
     <a href="/monitor-live.html">Buka Monitor Live Champer dan pemasangan browser ↗</a>
-  </section></div>;
+    </div>:<a href="/dashboard#hasil" onClick={()=>setSelected(null)}>Lihat hasil produksi yang sudah dilaporkan ↗</a>}
+    </MachineDialog>}
+  </>;
 }

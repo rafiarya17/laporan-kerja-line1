@@ -28,3 +28,26 @@
 .champer-session-count small{font-size:16px}.champer-phase{font-size:13px;padding:3px 10px;border:1px solid currentColor;border-radius:20px;color:var(--mute)}
 .champer-phase[data-tone=active]{color:var(--run)}.champer-phase[data-tone=ended]{color:var(--accent)}.champer-phase[data-tone=review]{color:var(--setup)}
 .champer-session .previous-job{margin-top:8px;padding-top:7px;border-top:1px solid var(--border)}
+.weld-app .unlinked,.weld-app .waiting{--state:var(--off)}
+.weld-app .received{--state:var(--run)}
+.weld-app .tile.unlinked{border-inline-start-color:var(--border);background:var(--sub);padding-block:7px}
+.weld-app .tile.unlinked:hover{background:var(--bg)}
+.tile.unlinked .state-text{color:var(--mute);margin:1px 0 0;font-weight:400}
+.pilot-label .pilot-signal{color:var(--state)}
+.pilot-phase,.pilot-target{font-size:clamp(11px,.85vw,16px)}
+.pilot-phase{color:var(--accent);font-weight:650}
+.pilot-part{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.weld-app .machine-dialog{width:min(670px,94vw);max-height:88vh;max-height:88dvh;overflow:auto;overscroll-behavior:contain}
+.machine-dialog a{color:var(--accent);text-decoration:underline;text-underline-offset:3px}
+.weld-app .machine-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:14px 0 8px}
+.machine-kpis>div{border:1px solid var(--border);background:var(--sub);border-radius:8px;padding:10px}
+.machine-kpis dt{font-weight:650}
+.machine-kpis dd strong{display:block;font-size:clamp(22px,2.2vw,32px);font-variant-numeric:tabular-nums}
+.machine-kpis dd small{display:block;line-height:1.35}
+.machine-dialog .kpi-note,.champer-detail p{font-size:13px;color:var(--mute)}
+.champer-detail .champer-metrics{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.champer-detail .champer-metric{padding:10px}
+.champer-detail .champer-metric strong{font-size:24px}
+.champer-detail p{margin:5px 0}
+.champer-detail .champer-plan{margin-bottom:10px}
+@media(max-width:560px){.weld-app .machine-dialog{padding:14px}.weld-app .machine-kpis,.champer-detail .champer-metrics{grid-template-columns:1fr}.machine-kpis>div{padding:7px 10px}.machine-kpis dd strong{float:right;margin-top:-1.4em}.machine-kpis dt{padding-right:65px}}

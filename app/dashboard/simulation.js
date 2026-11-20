@@ -11,14 +11,43 @@ const layout = {
   99:['AUTO CHAMPER']
 };
 const statuses=['run','run','setup','run','off','down','run','stale'];
-const machines = Object.entries(layout).flatMap(([line,names]) => names.map((name,i) => {
-  const n=Number(line), seed=n+i;
+function exampleMachine(line,name,i) {
+  const seed=line+i;
   return {
-    id:'demo-'+line+'-'+i, line:n, name, parts:['CONTOH-'+line+'-'+(i+1)], ct:8+seed%17,
-    status:n===99?'run':statuses[seed%statuses.length], target:200+(seed%6)*50,
+    id:'demo-'+line+'-'+i, line, name, parts:['CONTOH-'+line+'-'+(i+1)], ct:8+seed%17,
+    status:line===99?'run':statuses[seed%statuses.length], target:200+(seed%6)*50,
     actual:30+(seed*19)%140, base:1000
   };
-}));
+}
+const machines = Object.entries(layout).flatMap(([line,names]) => names.map((name,i) => exampleMachine(Number(line),name,i)));
+
+export function startSimulatedFloor(roster,now=Date.now()) {
+  const perLine=new Map();
+  return roster.map(({line,name,id},i) => {
+    const index=perLine.get(line)??0;
+    perLine.set(line,index+1);
+    const machine=exampleMachine(line,name,index);
+    const actual=machine.status==='off'?0:machine.actual;
+    const runSeconds=Math.ceil(actual*machine.ct/(0.78+(i%17)/100));
+    const plannedSeconds=Math.ceil(runSeconds/(0.80+(i%16)/100));
+    return {...machine,id,actual,runSeconds,plannedSeconds,cycleProgress:0,
+      updated:now-(machine.status==='stale'?180000:0)};
+  });
+}
+
+export function advanceSimulatedFloor(list,step,now=Date.now()) {
+  return list.map((m,i)=>{
+    let status=m.status;
+    if(step%4===0 && i===Math.floor(step/4-1)%list.length && m.line!==99){
+      status=status==='run'?'setup':'run';
+    }
+    if(status==='off'||status==='stale')return m;
+    const running=status==='run'?5:0;
+    const credit=m.cycleProgress+running;
+    return {...m,status,actual:m.actual+Math.floor(credit/m.ct),cycleProgress:credit%m.ct,
+      runSeconds:m.runSeconds+running,plannedSeconds:m.plannedSeconds+5,updated:now};
+  });
+}
 const jobs = [];
 for (let offset=-13;offset<=0;offset++) {
   for (const shift of [1,2]) {
