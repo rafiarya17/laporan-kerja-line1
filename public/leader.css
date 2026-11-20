@@ -201,21 +201,37 @@ dialog form > .actions { position: sticky; bottom: calc(-1 * var(--dialog-pad));
   #revisionFields > label:has(input[name=reject]) { grid-column: 1/-1; }
 }
 
-.reportlist { display:grid; gap:5px; }
-.reportlist .card { display:grid; grid-template-columns: minmax(125px,.8fr) minmax(0,1.5fr) minmax(0,1fr) minmax(110px,1fr) auto; align-items:center; gap:6px 12px; padding:9px 12px; border-radius:8px; }
-.reportlist .reporthead,.reportlist .reportmeta,.reportlist .actions { margin:0; padding:0; display:flex; flex-wrap:wrap; gap:4px 8px; }
-.reportlist .part,.reportlist p { margin:0; font-size:14px; overflow-wrap:anywhere; }
-.reportlist .reportmeta span { background:transparent; padding:0; }
-.reportlist .card > small, .reportlist .card > p.small:nth-last-child(3) { display:none; }
-.reportlist .card > .badge.warn { grid-column:1/-1; }
-.reportlist .actions button { flex:auto; padding:6px 10px; }
+#reports { container-type:inline-size; }
+#reports .sectionhead { flex-wrap:wrap; }
+#reports .reporttools { flex:0 1 auto; display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+#reports .reporttools select { flex:1 1 145px; width:auto; }
+.viewswitch { display:inline-flex; padding:3px; border:1px solid var(--line); border-radius:9px; background:white; }
+.viewswitch button { min-height:40px; border:0; padding:7px 15px; background:transparent; color:var(--muted); }
+.viewswitch button[aria-pressed=true] { background:var(--accent,#116c70); color:white; }
+.viewswitch button:focus-visible { outline:2px solid #164e63; outline-offset:2px; }
+.reportidentity { min-width:0; overflow-wrap:anywhere; }
+.reportlist { display:grid; gap:8px; }
+.reportlist .card { display:grid; grid-template-columns:minmax(0,1fr) auto; grid-template-areas:"context context" "identity identity" "qty qty" "state state" "warning warning" "actions actions"; align-items:center; column-gap:16px; padding:12px 14px; }
+.reportlist .reporthead { grid-area:context; align-items:center; margin:0 0 4px; }
+.reportlist .reportidentity { grid-area:identity; }
+.reportlist .part { font-size:15px; }
+.reportlist p { margin:2px 0; }
+.reportlist .reportmeta { grid-area:qty; display:flex; flex-wrap:wrap; gap:6px 14px; margin:0; padding:4px 0; }
+.reportlist .reportmeta span { padding:0; background:transparent; }
+.reportlist .reportstate { grid-area:state; }
+.reportlist .reportwarning { grid-area:warning; justify-self:start; }
+.reportlist .card > small { display:none; }
+.reportlist .actions { grid-area:actions; display:flex; flex-wrap:wrap; gap:6px; margin:4px 0 0; }
+.reportlist .actions button { flex:0 1 auto; min-height:40px; padding:6px 10px; }
+@container (min-width:760px){
+ .reportlist .card { grid-template-columns:minmax(130px,.8fr) minmax(0,1.7fr) minmax(120px,.8fr) minmax(128px,.8fr); grid-template-areas:"context identity qty actions" "state identity qty actions" "warning warning warning warning"; }
+ .reportlist .reporthead { flex-direction:column; align-items:flex-start; gap:2px; }
+ .reportlist .actions { justify-content:flex-end; margin:0; }
+}
 .planrow { grid-template-columns:minmax(0,1fr) minmax(85px,110px) minmax(95px,125px) 44px; }
 .planrow .calculation { grid-column:1/-1; }
 .planrow .calculation button { width:auto; padding:4px 10px; }
 @media(max-width:850px){
- .reportlist .card { grid-template-columns:1fr 1fr; }
- .reportlist .reporthead,.reportlist .part { grid-column:1/-1; }
- .reportlist .actions { grid-column:1/-1; }
 }
 @media(max-width:650px){
  .draftchip.planrow {grid-template-columns:minmax(0,1fr) minmax(0,1fr) 44px;}
@@ -223,3 +239,5 @@ dialog form > .actions { position: sticky; bottom: calc(-1 * var(--dialog-pad));
  .draftchip.planrow > label {grid-column:auto;grid-row:2;}
  .draftchip.planrow > button {grid-column:3;grid-row:1;}
 }
+
+.reportlist .repeatstate { display:none; }
