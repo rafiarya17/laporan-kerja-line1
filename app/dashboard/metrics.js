@@ -1,10 +1,5 @@
 export const dayMs=86400000;
-export function workShift(now){
-  const local=new Date(now.getTime()+7*3600000);
-  const minute=local.getUTCHours()*60+local.getUTCMinutes();
-  const date=new Date(local.getTime()-(minute<450?dayMs:0)).toISOString().slice(0,10);
-  return {date,shift:minute>=450 && minute<1170?1:2};
-}
+export {workShift} from '../../lib/welding-shift';
 export function dayOffset(date,offset){return new Date(Date.parse(date+'T00:00:00Z')+offset*dayMs).toISOString().slice(0,10);}
 export const fmt=n=>n==null?'—':n.toLocaleString('id-ID',{maximumFractionDigits:1});
 export const metrics=[

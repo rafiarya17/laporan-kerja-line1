@@ -1,6 +1,7 @@
 import {ChamperError,fail,operatorAction,poll,result,view,Target,Evidence,validateTarget,uuid} from '@/lib/champer-core';
 import {redisStore} from '@/lib/champer-store';
 import {telemetryStore,validateTelemetry} from '@/lib/champer-telemetry';
+import {shiftWork} from '@/lib/champer-live-work';
 import {portalPreview,previewBlocked} from '@/lib/portal-preview';
 import {equal,issueCookie,validCookie} from '@/lib/champer-auth';
 import {callReceiver,receiverMode,receiverReady} from '@/lib/receiver';
@@ -39,6 +40,7 @@ async function handle(r:Request){
   const path=new URL(r.url).pathname.split('/').at(-1);
   if(r.method==='GET'&&path==='capabilities')return Response.json({enabled:!!ready(),machine:'AUTO_CHAMPER',mode:'PLC_PILOT',reportsEnabled:ready()&&process.env.CHAMPER_REPORT_ENABLED==='1',plcWrites:false,productionUsable:false},{headers});
   if(!ready())fail('CLOUD_BRIDGE_NOT_CONFIGURED',503);
+  if(r.method==='GET'&&path==='live-work'){tablet(r);return Response.json(shiftWork(await store().read(),Date.now()),{headers});}
   if(r.method==='GET'&&path==='telemetry'){tablet(r);const c=config();return Response.json({serverTime:Date.now(),telemetry:await telemetryStore(c.url,c.token).get(),machine:'AUTO_CHAMPER',line:'LINE_99',plcFreshness:'UNVERIFIED'},{headers});}
   if(r.method==='GET'&&path==='state'){tablet(r);const state=await store().transaction(s=>view(s,Date.now()));return Response.json(state,{headers});}
   if(r.method!=='POST')fail('NOT_FOUND',404);
@@ -81,7 +83,7 @@ async function handle(r:Request){
    const j=await store().transaction(s=>operatorAction(s,b,Date.now()));return Response.json({ok:true,job:j},{headers});
   }
   if(b.sourceId!==config().source)fail('SOURCE_MISMATCH',403);
-  if(path==='telemetry'){const c=config();const t=validateTelemetry(b,c.collector,Date.now());return Response.json({accepted:await telemetryStore(c.url,c.token).put(t),serverTime:Date.now()},{headers});}
+  if(path==='telemetry'){const c=config();const t=validateTelemetry(b,c.collector,Date.now());return Response.json({accepted:await telemetryStore(c.url,c.token).put(t,c.collector),serverTime:Date.now()},{headers});}
   if(path==='poll'){
    if(typeof b.ready!=='boolean'||!uuid(b.instanceId))fail('INVALID_READY',400);
    const owner=b.instanceId,source=String(b.sourceId),isReady=b.ready;

@@ -84,7 +84,7 @@ export function DashboardContent(){
   <div className="floor" data-reviewed-rows>{order.map(line=><Zone key={line} line={line} items={map.filter(m=>m.line===line)} select={setDetail}/>)}</div>
   <div className="map-foot"><span>Pilih mesin untuk melihat sesi.</span><span>{map.length} mesin · 8 line produksi + 1 line uji</span></div>
   {chosen&&<MachineDetail machine={chosen} close={()=>setDetail(null)}/>}
-  </>:<ActualLive/>}
+  </>:<ActualLive key={key} date={shift.date} shift={shift.shift}/>}
   </>:simulation?<><span className="sample">Data simulasi</span><Analysis jobs={simulationData.jobs} machines={machines} current={shift}/></>:<ActualAnalysis current={shift}/>}
  </div></div>;
 }
