@@ -127,6 +127,10 @@ export function ActualLive({date,shift,machines}){
   const hours=sessionPlan.data?.jobId===job?.id?sessionPlan.data?.hours:null;
   const asOf=cloud?.asOf;
   const kpis=champerSessionKpis(job,count,asOf,hours,cloud?.sessionTime);
+  const conversionNote=kpis.awaitingConversion?'Konversi D100 ke pcs belum tersedia untuk part ini. ':'';
+  const pilotNote=kpis.pcs!=null
+    ?fmt(count)+' hitungan × '+kpis.pcsPerCount+' pcs = '+fmt(kpis.pcs)+' pcs bruto. Dihitung hingga '+hour.format(asOf)+' WIB. '
+    :conversionNote||'Menunggu pembacaan sesi yang valid. ';
   kpis.availability=calls?.covered>0?1-calls.down/calls.covered:null;
   const part=job?.part??(plan?.parts.length?plan.parts.map(p=>p.part).join(' · '):planNote);
   return <>
@@ -136,11 +140,12 @@ export function ActualLive({date,shift,machines}){
       <span className="pilot-label"><b>AUTO CHAMPER</b><span className={'pilot-signal '+status}><Dot state={status}/>{statusLabel}</span></span>
       <span className="pilot-phase">{phase}{ended&&' · '+time.format(job.endedAt)+' WIB'}</span>
       <PilotOutput actual={kpis.pcs} target={job?job.targetQty:plan?.parts.length?plan.total:null}/>
-      <span className="pilot-part">{job?'Aktual bruto / target OK sesi':'Aktual belum tersedia / target OK shift'}{job&&(job.date!==date||Number(job.shift)!==shift)&&' · '+job.date+' · Shift '+job.shift}</span>
+      <span className="pilot-part">{job?(kpis.provisional?'Estimasi bruto / target OK sesi':'Aktual bruto / target OK sesi'):'Aktual belum tersedia / target OK shift'}{job&&(job.date!==date||Number(job.shift)!==shift)&&' · '+job.date+' · Shift '+job.shift}</span>
+      {kpis.awaitingConversion&&<span className="pilot-part">Aktual sesi · {fmt(count)} hitungan D100 · menunggu konversi ke pcs</span>}
       <span className="pilot-part" title={part}>{part}</span>
     </>}/>
     {chosen&&<MachineDialog machine={chosen} definitions={chosen.line===99?pilotIndicators:undefined} kpis={chosen.line===99?kpis:undefined} close={()=>setSelected(null)} note={chosen.line===99?
-      (kpis.pcs!=null?fmt(count)+' hitungan × '+kpis.pcsPerCount+' pcs = '+fmt(kpis.pcs)+' pcs bruto. MASTER_CT '+kpis.cycleSeconds+' detik/pcs. Dihitung hingga '+hour.format(asOf)+' WIB. ':'Menunggu part dengan konversi dan pembacaan sesi yang valid. ')+'Availability memakai waktu yang terpantau pada shift ini. MTC dan dandori yang bersamaan dihitung satu kali.':
+      pilotNote+(kpis.provisional?'Estimasi memakai asumsi 1 hitungan = 1 pcs sambil menunggu konfirmasi lapangan. ':'')+(kpis.cycleSeconds>0?'MASTER_CT '+kpis.cycleSeconds+' detik/pcs. ':'')+'Availability memakai waktu yang terpantau pada shift ini. MTC dan dandori yang bersamaan dihitung satu kali.':
       'Mesin ini belum mengirim data ke Monitor Live. Metrik sesi tersedia setelah durasi mesin dan hasil produksi dapat diukur.'}>
     {chosen.line===99?<div className="champer-detail">
     <div className="champer-metrics">
@@ -157,7 +162,7 @@ export function ActualLive({date,shift,machines}){
     <div className="champer-metrics">
       <Metric label="Target OK leader · shift" value={plan?.parts.length?plan.total:null} unit="pcs" note={planNote}/>
       <Metric label="OK dilaporkan operator · shift" value={output?.ok} unit="pcs" note={outputNote}/>
-      <Metric label="Kenaikan D100 terpantau · shift" value={observed} unit="hitungan" note={meter?(meter.review?'Counter turun atau bacaan berkonflik · perlu pemeriksaan':'Dari '+hour.format(meter.firstAt)+' hingga '+hour.format(meter.lastAt)+' WIB'):pair?'Perlu pemasangan browser':'Menunggu D100 pertama pada shift ini'}/>
+      <Metric label="Kenaikan D100 · seluruh shift terpantau" value={observed} unit="hitungan" note={meter?(meter.review?'Counter turun atau bacaan berkonflik · perlu pemeriksaan':'Pembacaan pertama '+hour.format(meter.firstAt)+' WIB · terakhir '+hour.format(meter.lastAt)+' WIB'):pair?'Perlu pemasangan browser':'Menunggu D100 pertama pada shift ini'}/>
     </div>
     {plan?.parts.length>0&&<ul className="champer-plan">{plan.parts.map((p,i)=><li key={p.part+i}><span>{p.part}</span><b>{fmt(p.targetQty)} pcs OK</b></li>)}</ul>}
     <p><b>Counter D100 terakhir</b> · {fmt(reading?.value)}{reading&&' · '+time.format(reading.observedAt)+' WIB'}</p>
