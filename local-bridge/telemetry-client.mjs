@@ -1,5 +1,5 @@
 // Reads the local journal only; no DDE, PLC, snapshot command or job dependency.
-export function telemetryAdapter({config,fetcher=fetch,now=Date.now}){
+export function telemetryAdapter({config,fetcher=fetch,now=Date.now,signals=()=>null}){
  let busy=false,lastSignature='',lastSent=0;
  async function get(path){const r=await fetcher(config.localBase+path,{headers:{authorization:'Bearer '+config.localToken},cache:'no-store',redirect:'error',signal:AbortSignal.timeout(4000)});if(!r.ok)throw Error('LOCAL_UNAVAILABLE');return r.json();}
  return {async tick(){
@@ -19,10 +19,11 @@ export function telemetryAdapter({config,fetcher=fetch,now=Date.now}){
      reading={eventId:r.event_id,value,observedAt};
     }
    }catch{}
-   const signature=JSON.stringify({reading,localReady,status});
+   const calls=signals();
+   const signature=JSON.stringify({reading,localReady,status,mtc:calls?.mtc,dandori:calls?.dandori});
    if(signature===lastSignature&&now()-lastSent<15000)return {state:'UNCHANGED'};
    const sentAt=now();
-   const r=await fetcher(config.cloudOrigin+'/api/champer/telemetry',{method:'POST',headers:{authorization:'Bearer '+config.deviceToken,'content-type':'application/json'},body:JSON.stringify({sourceId:config.sourceId,collectorId:config.collectorId,machine:'AUTO_CHAMPER',tag:'DXP|Device1|D100',sentAt,localReady,status,reading}),cache:'no-store',redirect:'error',signal:AbortSignal.timeout(10000)});
+   const r=await fetcher(config.cloudOrigin+'/api/champer/telemetry',{method:'POST',headers:{authorization:'Bearer '+config.deviceToken,'content-type':'application/json'},body:JSON.stringify({sourceId:config.sourceId,collectorId:config.collectorId,machine:'AUTO_CHAMPER',tag:'DXP|Device1|D100',sentAt,localReady,status,reading,calls}),cache:'no-store',redirect:'error',signal:AbortSignal.timeout(10000)});
    if(!r.ok)throw Error('TELEMETRY_HTTP_'+r.status);
    lastSignature=signature;lastSent=sentAt;
    return {state:'TELEMETRY_SENT',eventId:reading?.eventId||null};

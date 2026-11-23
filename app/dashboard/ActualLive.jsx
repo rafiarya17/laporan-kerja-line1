@@ -5,7 +5,7 @@ import {Dot, FloorPlan, MachineDialog} from './LiveFloor';
 import {champerSessionKpis} from './champer-session-kpis.mjs';
 
 const pilotIndicators=[
-  ['availability','Availability shift','Waktu produksi terencana yang sudah berlalu dikurangi downtime, dibagi waktu terencana yang sudah berlalu.'],
+  ['availability','Availability · shift terpantau','Persentase waktu kedua sinyal terpantau dengan MTC dan dandori sama-sama nonaktif.'],
   ['performance','Performance sementara','Waktu standar untuk pcs terhitung ÷ durasi sesi. Durasi masih termasuk jeda.'],
   ['efficiency','Efisiensi terhadap target','Pcs terhitung sejak Mulai ÷ target OK pekerjaan.']
 ];
@@ -109,8 +109,14 @@ export function ActualLive({date,shift,machines}){
     plan?(plan.parts.length?plan.parts.length+' part ditargetkan':'Belum ada target leader'):'Memuat target leader…';
   const outputNote=board.status==='error'?(output?'Hasil terakhir · gagal memperbarui':'Hasil sesi belum dapat dimuat'):
     output?(output.completed?output.completed+' sesi selesai':'Belum ada sesi selesai'):pair?'Perlu pemasangan browser':'Memuat hasil sesi…';
-  const status=fresh?'received':pair||!reading?'waiting':'stale';
-  const statusLabel=fresh?'Data D100 diterima':pair?'Perlu pemasangan':status==='stale'?'Data terakhir':'Menunggu data';
+  const shiftFrom=Date.parse(date+(shift===1?'T07:30':'T19:30')+':00+07:00');
+  const calls=telemetry?.calls?.start===shiftFrom?telemetry.calls:null;
+  const signalFresh=calls&&board.status==='ready'&&cloud.serverTime-calls.at<30000;
+  const activeMtc=signalFresh&&calls.mtc===1,activeDandori=signalFresh&&calls.dandori===1;
+  const status=activeMtc?'down':activeDandori?'setup':fresh?'received':pair||!reading?'waiting':'stale';
+  const statusLabel=activeMtc?(activeDandori?'MTC + dandori':'MTC aktif'):activeDandori?'Dandori aktif':fresh?'Data D100 diterima':pair?'Perlu pemasangan':status==='stale'?'Data terakhir':'Menunggu data';
+  const signalText=bit=>!signalFresh||bit==null?'Belum terpantau':bit===1?'Aktif':'Nonaktif';
+  const duration=ms=>ms==null?'—':Math.floor(ms/3600000)+'j '+Math.floor(ms/60000)%60+'m '+Math.floor(ms/1000)%60+'d';
   const floor=useMemo(()=>machines.map(m=>m.line===99?{...m,status,statusLabel}:{...m,status:'unlinked'}),[machines,status,statusLabel]);
   const chosen=floor.find(m=>m.id===selected);
   const now=cloud?.serverTime??Date.now();
@@ -118,6 +124,7 @@ export function ActualLive({date,shift,machines}){
   const {job,ended,phase,count}=summary;
   const asOf=ended?job.endedAt:fresh?now:job?.count?.at;
   const kpis=champerSessionKpis(job,count,asOf);
+  kpis.availability=calls?.covered>0?1-calls.down/calls.covered:null;
   const part=job?.part??(plan?.parts.length?plan.parts.map(p=>p.part).join(' · '):planNote);
   return <>
     <div className="map-summary"><div className="legend"><span><Dot state="received"/><b>1</b> mesin dengan integrasi PLC</span>
@@ -132,9 +139,14 @@ export function ActualLive({date,shift,machines}){
       {reading&&<span className="pilot-part">D100 terakhir · {fmt(reading.value)} · {hour.format(reading.observedAt)} WIB</span>}
     </>}/>
     {chosen&&<MachineDialog machine={chosen} definitions={chosen.line===99?pilotIndicators:undefined} kpis={chosen.line===99?kpis:undefined} close={()=>setSelected(null)} note={chosen.line===99?
-      (kpis.pcs!=null?fmt(count)+' hitungan × '+kpis.pcsPerCount+' pcs = '+fmt(kpis.pcs)+' pcs bruto. MASTER_CT '+kpis.cycleSeconds+' detik/pcs. Dihitung hingga '+hour.format(asOf)+' WIB. ':'Menunggu part dengan konversi dan pembacaan sesi yang valid. ')+'MTC dan dandori belum terpantau sepanjang shift.':
+      (kpis.pcs!=null?fmt(count)+' hitungan × '+kpis.pcsPerCount+' pcs = '+fmt(kpis.pcs)+' pcs bruto. MASTER_CT '+kpis.cycleSeconds+' detik/pcs. Dihitung hingga '+hour.format(asOf)+' WIB. ':'Menunggu part dengan konversi dan pembacaan sesi yang valid. ')+'Availability memakai waktu yang terpantau pada shift ini. MTC dan dandori yang bersamaan dihitung satu kali.':
       'Mesin ini belum mengirim data ke Monitor Live. Metrik sesi tersedia setelah durasi mesin dan hasil produksi dapat diukur.'}>
     {chosen.line===99?<div className="champer-detail">
+    <div className="champer-metrics">
+      <div className="champer-metric"><span>D102 · MTC</span><p>{signalText(calls?.mtc)}</p><b>{duration(calls?.mtcKnown?calls.mtcMs:null)}</b></div>
+      <div className="champer-metric"><span>D104 · Dandori</span><p>{signalText(calls?.dandori)}</p><b>{duration(calls?.dandoriKnown?calls.dandoriMs:null)}</b></div>
+      <div className="champer-metric"><span>Cakupan shift</span><p>Terpantau {duration(calls?.covered)}</p><p>Belum terpantau {duration(Math.max(0,now-shiftFrom-(calls?.covered??0)))}</p><p>Downtime dalam cakupan {duration(calls?.covered?calls.down:null)}</p>{calls&&<p>Sampel terakhir {hour.format(calls.at)} WIB</p>}</div>
+    </div>
     <SessionResult summary={summary} output={output} paired={pair} failed={board.status==='error'} now={now}/>
     <div className="champer-metrics">
       <Metric label="Target OK leader · shift" value={plan?.parts.length?plan.total:null} unit="pcs" note={planNote}/>

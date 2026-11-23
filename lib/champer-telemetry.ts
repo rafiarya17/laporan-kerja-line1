@@ -3,7 +3,19 @@ import {workShift} from './welding-shift';
 export const TELEMETRY_KEY='berlindo:champer:pilot:telemetry:v1';
 export type Reading={eventId:string;value:number;observedAt:number};
 export type ShiftCounter={date:string;shift:number;collector:string;firstAt:number;firstValue:number;lastAt:number;lastValue:number;review:boolean};
-export type Telemetry={shiftCounter?:ShiftCounter|null;sentAt:number;receivedAt:number;readingReceivedAt:number|null;localReady:boolean;reading:Reading|null;status:string};
+export type ShiftSignals={start:number;at:number;mtc:0|1|null;dandori:0|1|null;mtcMs:number;dandoriMs:number;mtcKnown:number;dandoriKnown:number;covered:number;down:number};
+function shiftSignals(value:unknown,sentAt:number):ShiftSignals|null {
+ if(value==null)return null;
+ const v=value as ShiftSignals;
+ if(typeof v!=='object'||!Number.isSafeInteger(v.at)||v.at<=0||v.at>sentAt+5000||
+    v.start!==Math.floor((v.at-1800000)/43200000)*43200000+1800000||
+    ![0,1,null].includes(v.mtc)||![0,1,null].includes(v.dandori)||
+    [v.covered,v.down,v.mtcMs,v.dandoriMs,v.mtcKnown,v.dandoriKnown].some(n=>!Number.isSafeInteger(n)||n<0||n>v.at-v.start)||
+    v.mtcMs>v.mtcKnown||v.dandoriMs>v.dandoriKnown||v.covered>Math.min(v.mtcKnown,v.dandoriKnown)||v.down>v.covered||v.down>v.mtcMs+v.dandoriMs)fail('TELEMETRY_INVALID',400);
+ const {start,at,mtc,dandori,mtcMs,dandoriMs,mtcKnown,dandoriKnown,covered,down}=v;
+ return {start,at,mtc,dandori,mtcMs,dandoriMs,mtcKnown,dandoriKnown,covered,down};
+}
+export type Telemetry={calls?:ShiftSignals|null;shiftCounter?:ShiftCounter|null;sentAt:number;receivedAt:number;readingReceivedAt:number|null;localReady:boolean;reading:Reading|null;status:string};
 export function validateTelemetry(b:Record<string,unknown>,collector:string,now:number):Telemetry {
  if(b.collectorId!==collector||b.machine!=='AUTO_CHAMPER'||b.tag!=='DXP|Device1|D100')fail('TELEMETRY_MAPPING_MISMATCH',400);
  if(typeof b.sentAt!=='number'||!Number.isSafeInteger(b.sentAt)||Math.abs(now-b.sentAt)>5000)fail('TELEMETRY_CLOCK_OR_DELAY',400);
@@ -14,7 +26,7 @@ export function validateTelemetry(b:Record<string,unknown>,collector:string,now:
   if(!r||typeof r.eventId!=='string'||!r.eventId.startsWith(collector+':')||r.eventId.length>180||!Number.isSafeInteger(r.value)||r.value<0||!Number.isSafeInteger(r.observedAt)||r.observedAt<1||r.observedAt>b.sentAt+5000)fail('TELEMETRY_READING_INVALID',400);
   reading={eventId:r.eventId,value:r.value,observedAt:r.observedAt};
  }
- return {sentAt:b.sentAt,receivedAt:now,readingReceivedAt:reading?now:null,localReady:b.localReady,reading,status:String(b.status)};
+ return {calls:shiftSignals(b.calls,b.sentAt),sentAt:b.sentAt,receivedAt:now,readingReceivedAt:reading?now:null,localReady:b.localReady,reading,status:String(b.status)};
 }
 // Separate bounded key: never modifies jobs, snapshots, reports or transfer slips.
 export const TELEMETRY_CAS = `
