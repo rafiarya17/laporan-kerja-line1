@@ -1,0 +1,33 @@
+main { max-width: 1320px; margin: auto; padding: clamp(16px, 4vw, 42px); }
+h1 { margin-bottom: 4px; }
+.filters, .actions, #choices { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.filters label { flex: 1 1 9em; }
+.actions { align-items: start; margin-top: 16px; justify-content: space-between; }
+#columns { flex: 1 1 14em; }
+summary { cursor: pointer; width: fit-content; padding: 10px 14px; border: 1px solid var(--line); border-radius: 9px; font-weight: 650; }
+summary:focus-visible { outline: 3px solid #dba344; }
+#choices { gap: 0 15px; padding-top: 8px; }
+#choices label { flex-direction: row; align-items: center; min-height: 44px; cursor: pointer; }
+#choices input { height: 18px; width: 18px; min-height: 0; accent-color: var(--teal); }
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+td, th { text-align: left; vertical-align: top; padding: 10px; border-bottom: 1px solid #dce4df; }
+th { font-size: .85rem; }
+td[data-key="ok"], td[data-key="repair"], td[data-key="reject"] { white-space: nowrap; }
+#summary { margin: 18px 0 2px; font-weight: 650; }
+#timing { margin-top: 2px; color: #526967; font-size: .9rem; }
+.print-only { display: none; }
+@page { size: A4 landscape; margin: 12mm; }
+@media print {
+  :root, body { color: #111; background: white; font: 10pt/1.3 sans-serif; }
+  main, .panel { display: block; width: auto; max-width: none; margin: 0; padding: 0; box-shadow: none; border: 0; }
+  .screen-only, #duration { display: none !important; }
+  .print-only { display: block; }
+  h1 { font-size: 20pt; margin: 0 0 4pt; }
+  p, #summary, #timing { margin: 3pt 0; color: #222; }
+  .scroll { overflow: visible; }
+  table { margin-top: 8pt; }
+  thead { display: table-header-group; }
+  tr { break-inside: avoid; page-break-inside: avoid; }
+  td, th { padding: 4pt; border: .5pt solid #999; overflow-wrap: anywhere; }
+}
