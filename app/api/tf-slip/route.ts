@@ -1,3 +1,4 @@
+import { portalPreview } from '@/lib/portal-preview';
 import { processInterval, type LkhForm } from '@/lib/lkh';
 import { sqlDatabase, sqlSubmissionEnabled } from '@/lib/sql-intake';
 
@@ -5,11 +6,23 @@ export async function POST(request: Request) {
   const headers = {'Cache-Control':'private, no-store'};
   const reply = (body: unknown, status = 200) => Response.json(body,{status,headers});
   if (request.headers.get('origin') !== new URL(request.url).origin) return reply({error:'Asal permintaan tidak valid.'},403);
-  if (process.env.VERCEL_ENV !== 'production' || !sqlSubmissionEnabled('LINE_1')) return reply({error:'Data produksi belum tersedia.'},503);
   const params = new URL(request.url).searchParams;
   const date = params.get('date') || '', shift = params.get('shift') || '', line = params.get('line') || '';
   const day = new Date(date+'T00:00:00Z');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(+day) || day.toISOString().slice(0,10)!==date || !['','1','2'].includes(shift) || (line && !/^LINE_[1-8]$/.test(line))) return reply({error:'Filter tanggal, shift, atau line tidak valid.'},400);
+  if (portalPreview()) {
+    const rows = Array.from({length: 28}, (_, index) => ({
+      id: 'CONTOH-' + index,
+      line: 'LINE_' + (1 + index % 8),
+      shift: index < 14 ? '1' : '2',
+      machine: 'Mesin contoh ' + (1 + index % 8),
+      part: 'PART-CONTOH-' + (101 + index),
+      ok: 100 + index, repair: index % 3, reject: index % 2,
+      approved: date + (index < 14 ? 'T16:35:00+07:00' : 'T23:35:00+07:00'),
+    })).filter(row => (!shift || row.shift === shift) && (!line || row.line === line));
+    return reply({preview:true, rows, pending:0, waitingEnd:0, invalid:0, asOf:new Date().toISOString()});
+  }
+  if (process.env.VERCEL_ENV !== 'production' || !sqlSubmissionEnabled('LINE_1')) return reply({error:'Data produksi belum tersedia.'},503);
   try {
     const start = performance.now();
     const sql = sqlDatabase();

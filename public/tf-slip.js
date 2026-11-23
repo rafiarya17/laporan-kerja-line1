@@ -36,7 +36,7 @@ async function load(){
         qty.format(row.reject)+(pipe?' mm':' pcs'),wib.format(new Date(row.approved))]) tr.insertCell().textContent=value;
     }
     table.hidden=!data.rows.length;
-    el('summary').textContent=data.rows.length+' laporan siap · '+data.pending+' menunggu leader · '+data.waitingEnd+' menunggu jam selesai'+(data.invalid?' · '+data.invalid+' perlu diperiksa':'');
+    el('summary').textContent=(data.preview?'Pratinjau dengan data contoh · ':'')+data.rows.length+' laporan siap · '+data.pending+' menunggu leader · '+data.waitingEnd+' menunggu jam selesai'+(data.invalid?' · '+data.invalid+' perlu diperiksa':'');
     el('timing').textContent='Data per '+wib.format(new Date(data.asOf))+' WIB · Dimuat dalam '+((performance.now()-start)/1000).toFixed(2)+' detik';
     history.replaceState(null,'','?'+query);
   } catch(e){ if(current===controller) el('summary').textContent=e.message||'Gagal memuat TF Slip.'; }
