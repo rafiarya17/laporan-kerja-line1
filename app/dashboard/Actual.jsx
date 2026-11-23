@@ -56,7 +56,8 @@ function MartMatrix({current,mart}){
  const initialDate=showLatest?lastReport:current.date;
  const [start,setStart]=useState(initialDate),[end,setEnd]=useState(initialDate),[shift,setShift]=useState(showLatest?'all':String(current.shift));
  const [line,setLine]=useState('all'),[machine,setMachine]=useState('all'),[view,setView]=useState('auto');
- const grain=view==='auto'?(start&&end&&start<end?'machine-total':'machine'):view;
+ const aggregateWindow=shift==='all'||Boolean(start&&end&&start<end);
+ const grain=view==='auto'?(aggregateWindow?'machine-total':'machine'):view;
  const [cols,setCols]=useState(()=>{const x=saved('mart-columns',defaultColumns);return Array.isArray(x)&&x.some(k=>attrs.some(([a])=>a===k))?x:defaultColumns;});
  const source=grain==='part'?byPart:mergedMachines;
  const machines=[...new Set(source.filter(r=>line==='all'||r.line===Number(line)).map(r=>r.machine))].sort();
