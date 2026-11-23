@@ -1,4 +1,5 @@
 import {ChamperError,fail,operatorAction,poll,result,view,Target,Evidence,validateTarget,uuid} from '@/lib/champer-core';
+import {sqlDatabase} from '@/lib/sql-intake';
 import {redisStore} from '@/lib/champer-store';
 import {telemetryStore,validateTelemetry} from '@/lib/champer-telemetry';
 import {shiftWork,liveBoard} from '@/lib/champer-live-work';
@@ -43,7 +44,28 @@ async function handle(r:Request){
   if(r.method==='GET'&&path==='live-board'){
     tablet(r);
     const {state,telemetry}=await store().readBoard();
-    return Response.json(liveBoard(state,telemetry,Date.now()),{headers});
+    const board=liveBoard(state,telemetry,Date.now());
+    const job=board.session??board.lastEnded;
+    const recent=telemetry?.localReady && board.serverTime-telemetry.receivedAt<=30000;
+    const asOf=job?.endedAt??(recent?board.serverTime:board.session?.count?.at??job?.baseline?.observedAt);
+    let sessionTime=null;
+    if(job?.baseline&&asOf!=null){
+      const c=config();
+      try {sessionTime=await telemetryStore(c.url,c.token).sessionTime(job.baseline.observedAt,asOf);}
+      catch { /* Keep live counts available if the duration history is unavailable. */ }
+    }
+    return Response.json({...board,sessionTime,asOf},{headers});
+  }
+  if(r.method==='GET'&&path==='session-plan'){
+    tablet(r);
+    const jobId=new URL(r.url).searchParams.get('job');
+    const job=(await store().read()).jobs.find(j=>j.id===jobId);
+    if(!job)fail('JOB_NOT_FOUND',404);
+    const t=job!.target;
+    const [row]=await sqlDatabase()`SELECT items FROM leader_target_hours WHERE production_date=${t.date}::date
+      AND shift=${String(t.shift)} AND line=${t.line} AND version=${t.version}`;
+    const part=row?.items?.find((p:typeof t)=>p.machine===t.machine&&p.part===t.part&&p.line===t.line&&p.targetQty===t.targetQty);
+    return Response.json({jobId,hours:Number.isFinite(part?.hours)&&part.hours>0?part.hours:null},{headers});
   }
   if(r.method==='GET'&&path==='live-work'){tablet(r);return Response.json(shiftWork(await store().read(),Date.now()),{headers});}
   if(r.method==='GET'&&path==='telemetry'){tablet(r);const c=config();return Response.json({serverTime:Date.now(),telemetry:await telemetryStore(c.url,c.token).get(),machine:'AUTO_CHAMPER',line:'LINE_99',plcFreshness:'UNVERIFIED'},{headers});}

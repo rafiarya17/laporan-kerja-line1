@@ -36,6 +36,29 @@ local date, shift = ARGV[3], tonumber(ARGV[4])
 local from, untilMs = tonumber(ARGV[5]), tonumber(ARGV[5]) + 43200000
 local collector = ARGV[1]
 local meter
+local previous
+if old then previous=cjson.decode(old) end
+-- Keep a timestamped cumulative meter so a session can select two samples strictly
+-- inside its Start/End, including when the work crosses the WIB shift boundary.
+local calls=incoming.calls
+local totals=previous and previous.signalTotals or {covered=0,down=0}
+if type(calls)=='table' and (not totals.at or calls.at>totals.at) then
+  local prior=previous and previous.calls
+  local known,down=0,0
+  if type(prior)=='table' and prior.start==calls.start then
+    known=calls.covered-prior.covered
+    down=calls.down-prior.down
+  elseif totals.at and calls.start>=totals.at then
+    known=calls.covered
+    down=calls.down
+  end
+  if known>=0 and down>=0 and down<=known then
+    totals.covered=totals.covered+known
+    totals.down=totals.down+down
+  end
+  totals.at=calls.at
+end
+incoming.signalTotals=totals
 local function observe(r)
   if type(r) ~= 'table' or r.observedAt < from or r.observedAt >= untilMs then return end
   if string.sub(r.eventId,1,#collector+1) ~= collector..':' then return end
@@ -58,13 +81,38 @@ if old then
 end
 observe(incoming.reading)
 incoming.shiftCounter=meter
+if type(calls)=='table' and calls.at==totals.at then
+  redis.call('ZADD',KEYS[2],calls.at,cjson.encode({calls.at,totals.covered,totals.down}))
+  redis.call('ZREMRANGEBYSCORE',KEYS[2],'-inf',incoming.receivedAt-2592000000)
+end
 redis.call('SET',KEYS[1],cjson.encode(incoming))
 return 1`;
+type MeterPoint=[number,number,number];
+// A boundary between samples is exact only if the whole bracket is uniformly
+// covered and either entirely stopped or entirely running.
+function boundaryPoint(at:number,inside:MeterPoint,outside:MeterPoint|null):MeterPoint {
+ if(!outside || at===inside[0])return inside;
+ const span=inside[0]-outside[0],covered=inside[1]-outside[1],down=inside[2]-outside[2];
+ if(!span||covered!==span||(down!==0&&down!==span))return inside;
+ const offset=at-inside[0];
+ return [at,inside[1]+offset,inside[2]+(down===span?offset:0)];
+}
 export function telemetryStore(url:string,token:string,request:typeof fetch=fetch){
  const u=new URL(url);if(u.protocol!=='https:'||!u.hostname.endsWith('.upstash.io')||u.pathname!=='/'||u.search||u.username)fail('DATABASE_CONFIGURATION_INVALID',503);
  const key=TELEMETRY_KEY;
  async function command(args:unknown[]){const r=await request(url,{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(args),cache:'no-store',redirect:'error',signal:AbortSignal.timeout(8000)});if(!r.ok)fail('DATABASE_UNAVAILABLE',503);const b=await r.json();if(b.error)fail('DATABASE_UNAVAILABLE',503);return b.result;}
- return {async put(t:Telemetry,collector:string){const period=workShift(new Date(t.receivedAt));
+ const samples='{'+key+'}:signal-samples';
+ return {async sessionTime(start:number,end:number){
+   const firstLast=await command(['EVAL',`local a=redis.call('ZRANGEBYSCORE',KEYS[1],ARGV[1],ARGV[2],'LIMIT',0,1)
+     local b=redis.call('ZREVRANGEBYSCORE',KEYS[1],ARGV[2],ARGV[1],'LIMIT',0,1)
+     local before=redis.call('ZREVRANGEBYSCORE',KEYS[1],ARGV[1],'-inf','LIMIT',0,1)
+     local after=redis.call('ZRANGEBYSCORE',KEYS[1],ARGV[2],'+inf','LIMIT',0,1)
+     return {a[1] or '',b[1] or '',before[1] or '',after[1] or ''}`,1,samples,start,end]);
+   if(!firstLast?.[0]||!firstLast[1])return null;
+   const a=boundaryPoint(start,JSON.parse(firstLast[0]),firstLast[2]?JSON.parse(firstLast[2]):null);
+   const b=boundaryPoint(end,JSON.parse(firstLast[1]),firstLast[3]?JSON.parse(firstLast[3]):null);
+   return {covered:b[1]-a[1],down:b[2]-a[2],from:a[0],to:b[0]};
+ },async put(t:Telemetry,collector:string){const period=workShift(new Date(t.receivedAt));
    const from=Date.parse(period.date+(period.shift===1?'T07:30':'T19:30')+':00+07:00');
-   return await command(['EVAL',TELEMETRY_CAS,1,key,collector,JSON.stringify(t),period.date,period.shift,from])===1;},async get():Promise<Telemetry|null>{const v=await command(['GET',key]);return v?JSON.parse(v):null;}};
+   return await command(['EVAL',TELEMETRY_CAS,2,key,samples,collector,JSON.stringify(t),period.date,period.shift,from])===1;},async get():Promise<Telemetry|null>{const v=await command(['GET',key]);return v?JSON.parse(v):null;}};
 }

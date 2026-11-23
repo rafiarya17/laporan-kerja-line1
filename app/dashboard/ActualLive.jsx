@@ -6,8 +6,8 @@ import {champerSessionKpis} from './champer-session-kpis.mjs';
 
 const pilotIndicators=[
   ['availability','Availability · shift terpantau','Persentase waktu kedua sinyal terpantau dengan MTC dan dandori sama-sama nonaktif.'],
-  ['performance','Performance sementara','Waktu standar untuk pcs terhitung ÷ durasi sesi. Durasi masih termasuk jeda.'],
-  ['efficiency','Efisiensi terhadap target','Pcs terhitung sejak Mulai ÷ target OK pekerjaan.']
+  ['performance','Performance sesi','Waktu standar output bruto ÷ (durasi sesi − downtime MTC/dandori tercatat pada sesi).'],
+  ['efficiency','Efisiensi rencana berjalan','Pcs bruto ÷ target sampai saat ini berdasarkan alokasi jam leader.']
 ];
 const time = new Intl.DateTimeFormat('id-ID', {timeZone:'Asia/Jakarta',dateStyle:'medium',timeStyle:'short'});
 const hour = new Intl.DateTimeFormat('id-ID', {timeZone:'Asia/Jakarta',hour:'2-digit',minute:'2-digit'});
@@ -15,6 +15,7 @@ const hour = new Intl.DateTimeFormat('id-ID', {timeZone:'Asia/Jakarta',hour:'2-d
 function useFeed(path,interval,deadline) {
   const [result,setResult]=useState({data:null,status:'loading'});
   useEffect(()=>{
+    if(!path)return;
     let active=true, pending=false, controller, timeout;
     async function refresh(){
       if(document.hidden||pending)return;
@@ -122,8 +123,10 @@ export function ActualLive({date,shift,machines}){
   const now=cloud?.serverTime??Date.now();
   const summary=sessionSummary(output,pair,board.status==='error',now);
   const {job,ended,phase,count}=summary;
-  const asOf=ended?job.endedAt:fresh?now:job?.count?.at;
-  const kpis=champerSessionKpis(job,count,asOf);
+  const sessionPlan=useFeed(job?.id?'/api/champer/session-plan?job='+encodeURIComponent(job.id):null,60000,12000);
+  const hours=sessionPlan.data?.jobId===job?.id?sessionPlan.data?.hours:null;
+  const asOf=cloud?.asOf;
+  const kpis=champerSessionKpis(job,count,asOf,hours,cloud?.sessionTime);
   kpis.availability=calls?.covered>0?1-calls.down/calls.covered:null;
   const part=job?.part??(plan?.parts.length?plan.parts.map(p=>p.part).join(' · '):planNote);
   return <>
@@ -134,6 +137,7 @@ export function ActualLive({date,shift,machines}){
       <span className="pilot-phase">{phase}{ended&&' · '+time.format(job.endedAt)+' WIB'}</span>
       <span className="pilot-count">{fmt(count)} <small>hitungan {ended?'akhir':'sesi'}</small></span>
       <span className="pilot-target">Target leader · Shift {shift} · {fmt(plan?.parts.length?plan.total:null)} pcs OK</span>
+      {kpis.progress!=null&&<span className="pilot-part">Progres target · {fmt(kpis.pcs)} / {fmt(job.targetQty)} pcs · {fmt(kpis.progress*100)}%</span>}
       {job&&<span className="pilot-part">Target sesi · {fmt(job.targetQty)} pcs OK{(job.date!==date||Number(job.shift)!==shift)&&' · '+job.date+' · Shift '+job.shift}</span>}
       <span className="pilot-part" title={part}>{part}</span>
       {reading&&<span className="pilot-part">D100 terakhir · {fmt(reading.value)} · {hour.format(reading.observedAt)} WIB</span>}
@@ -147,6 +151,11 @@ export function ActualLive({date,shift,machines}){
       <div className="champer-metric"><span>D104 · Dandori</span><p>{signalText(calls?.dandori)}</p><b>{duration(calls?.dandoriKnown?calls.dandoriMs:null)}</b></div>
       <div className="champer-metric"><span>Cakupan shift</span><p>Terpantau {duration(calls?.covered)}</p><p>Belum terpantau {duration(Math.max(0,now-shiftFrom-(calls?.covered??0)))}</p><p>Downtime dalam cakupan {duration(calls?.covered?calls.down:null)}</p>{calls&&<p>Sampel terakhir {hour.format(calls.at)} WIB</p>}</div>
     </div>
+    {job&&<div className="champer-metrics">
+      <Metric label="Progres target akhir" value={kpis.progress==null?null:kpis.progress*100} unit="%" note={fmt(kpis.pcs)+' pcs bruto / '+fmt(job.targetQty)+' pcs target'}/>
+      <Metric label="Target sampai saat ini" value={kpis.plannedQty} unit="pcs" note={hours?'Alokasi leader '+fmt(hours)+' jam sejak Mulai':sessionPlan.status==='loading'?'Memuat alokasi jam leader':'Alokasi jam untuk versi target ini belum tersedia'}/>
+      <div className="champer-metric"><span>Waktu sesi setelah downtime</span><p>{duration(kpis.runMs)}</p><p>MTC/dandori tercatat dalam sesi {duration(cloud?.sessionTime?.down)}</p><p>{kpis.partial?'Cakupan sinyal sebagian · Performance sementara':kpis.runMs==null?'Menunggu bukti waktu sesi':''}</p></div>
+    </div>}
     <SessionResult summary={summary} output={output} paired={pair} failed={board.status==='error'} now={now}/>
     <div className="champer-metrics">
       <Metric label="Target OK leader · shift" value={plan?.parts.length?plan.total:null} unit="pcs" note={planNote}/>
