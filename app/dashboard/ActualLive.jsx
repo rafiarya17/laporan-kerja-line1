@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { fmt } from './metrics';
-import {Dot, FloorPlan, MachineDialog} from './LiveFloor';
+import {Dot, FloorPlan, MachineDialog, PilotOutput} from './LiveFloor';
 
 import {champerSessionKpis} from './champer-session-kpis.mjs';
 
@@ -135,12 +135,9 @@ export function ActualLive({date,shift,machines}){
     <FloorPlan machines={floor} select={setSelected} pilotCard={<>
       <span className="pilot-label"><b>AUTO CHAMPER</b><span className={'pilot-signal '+status}><Dot state={status}/>{statusLabel}</span></span>
       <span className="pilot-phase">{phase}{ended&&' · '+time.format(job.endedAt)+' WIB'}</span>
-      <span className="pilot-count">{fmt(count)} <small>hitungan {ended?'akhir':'sesi'}</small></span>
-      <span className="pilot-target">Target leader · Shift {shift} · {fmt(plan?.parts.length?plan.total:null)} pcs OK</span>
-      {kpis.progress!=null&&<span className="pilot-part">Progres target · {fmt(kpis.pcs)} / {fmt(job.targetQty)} pcs · {fmt(kpis.progress*100)}%</span>}
-      {job&&<span className="pilot-part">Target sesi · {fmt(job.targetQty)} pcs OK{(job.date!==date||Number(job.shift)!==shift)&&' · '+job.date+' · Shift '+job.shift}</span>}
+      <PilotOutput actual={kpis.pcs} target={job?job.targetQty:plan?.parts.length?plan.total:null}/>
+      <span className="pilot-part">{job?'Aktual bruto / target OK sesi':'Aktual belum tersedia / target OK shift'}{job&&(job.date!==date||Number(job.shift)!==shift)&&' · '+job.date+' · Shift '+job.shift}</span>
       <span className="pilot-part" title={part}>{part}</span>
-      {reading&&<span className="pilot-part">D100 terakhir · {fmt(reading.value)} · {hour.format(reading.observedAt)} WIB</span>}
     </>}/>
     {chosen&&<MachineDialog machine={chosen} definitions={chosen.line===99?pilotIndicators:undefined} kpis={chosen.line===99?kpis:undefined} close={()=>setSelected(null)} note={chosen.line===99?
       (kpis.pcs!=null?fmt(count)+' hitungan × '+kpis.pcsPerCount+' pcs = '+fmt(kpis.pcs)+' pcs bruto. MASTER_CT '+kpis.cycleSeconds+' detik/pcs. Dihitung hingga '+hour.format(asOf)+' WIB. ':'Menunggu part dengan konversi dan pembacaan sesi yang valid. ')+'Availability memakai waktu yang terpantau pada shift ini. MTC dan dandori yang bersamaan dihitung satu kali.':

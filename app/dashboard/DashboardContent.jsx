@@ -1,6 +1,6 @@
 import React,{useEffect,useRef,useState} from 'react';
 import simulationData, {startSimulatedFloor,advanceSimulatedFloor} from './simulation.js';
-import {FloorPlan,MachineDialog,Dot,simulationStates as states} from './LiveFloor';
+import {FloorPlan,MachineDialog,Dot,PilotOutput,simulationStates as states} from './LiveFloor';
 import performanceCore from '../../public/portal-performance-core.js';
 import {Analysis} from './Analysis.jsx';
 import {ActualAnalysis,ActualLive} from './Actual.jsx';
@@ -23,8 +23,7 @@ function SimulationDetail({machine:m,close}){
 function SimulatedPilot({machine:m}){
  return <>
    <span className="pilot-label"><b>{m.name}</b><span><Dot state={m.status}/>{states[m.status]}</span></span>
-   <span className="pilot-count">{fmt(m.actual)} <small>/ {fmt(m.target)} pcs</small></span>
-   <span className="track"><i style={{width:Math.min(100,100*m.actual/m.target)+'%'}}/></span>
+   <PilotOutput actual={m.actual} target={m.target}/>
    <span className="pilot-part">{m.parts[0]}</span>
  </>;
 }
@@ -51,7 +50,7 @@ export function DashboardContent({machines}){
    <a href="/leader?tab=targets">Target leader</a><a href="/pekerjaan.html">Pekerjaan operator</a><a href="/leader?tab=reports">Pemeriksaan &amp; TF Slip</a><a href="/portal.html?rekap=1">Rekap target &amp; TF Slip</a><a href="/">Form LKH ↗</a>
   </nav>
   {tab==='live'?<>
-  <div className="map-head"><div><small className="overline">{simulation?'SIMULASI':'AKTUAL'} · WELDING</small><h1>Monitor produksi</h1><p>{dateFmt.format(new Date(shift.date+'T12:00:00Z'))} · Shift {shift.shift} · {simulation?'Aktual / target sesi (pcs)':'Pilot PLC Line 99'}</p></div>
+  <div className="map-head"><div><small className="overline">{simulation?'SIMULASI':'AKTUAL'} · WELDING</small><h1>Monitor produksi</h1><p>{dateFmt.format(new Date(shift.date+'T12:00:00Z'))} · Shift {shift.shift} · Aktual / target (pcs)</p></div>
   <div className="tools"><b className="time">{clockFmt.format(now)} <small>WIB</small></b><button onClick={()=>{const t=theme==='dark'?'light':'dark';setTheme(t);save('theme',t);}}>{theme==='dark'?'☀ Terang':'☾ Gelap'}</button><button onClick={toggleTV}>{tv?'Keluar TV':'⛶ Mode TV'}</button></div></div>
   {simulation?<><div className="map-summary"><div className="legend">{Object.entries(states).map(([k,v])=><span key={k}><Dot state={k}/><b>{map.filter(m=>m.status===k).length}</b> {v}</span>)}</div>
   <button aria-pressed={!running} onClick={()=>setRunning(v=>!v)}>{running?'Ⅱ Jeda simulasi':'▷ Lanjutkan simulasi'}</button><span className="tv-sample">Data simulasi</span></div>

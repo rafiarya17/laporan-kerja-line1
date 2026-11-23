@@ -13,6 +13,12 @@ const indicators = [
 export function Dot({state}) {
   return <i className={'signal '+state} aria-hidden="true"/>;
 }
+export function PilotOutput({actual,target}) {
+  return <>
+    <span className="pilot-count">{fmt(actual)} <small>/ {fmt(target)} pcs</small></span>
+    {actual!=null && target>0 && <span className="track" aria-hidden="true"><i style={{width:Math.min(100,100*actual/target)+'%'}}/></span>}
+  </>;
+}
 export function FloorPlan({machines, select, pilotCard}) {
   return <>
     <div className="floor">{lineOrder.map(line => {
@@ -25,7 +31,7 @@ export function FloorPlan({machines, select, pilotCard}) {
             <button className={'tile '+m.status} key={m.id} onClick={()=>select(m.id)}
               aria-label={m.name+', '+labels[m.status]+', lihat detail'} title={m.name+' · '+labels[m.status]}>
               <span className="tile-name"><Dot state={m.status}/>{m.name}</span>
-              {m.status!=='unlinked'&&<span className="tile-info">{m.status==='off'?'—':<>{fmt(m.actual)} <small>/ {fmt(m.target)}</small></>}</span>}
+              <span className="tile-info">{m.status==='off'?'—':m.status==='unlinked'?<>— <small>/ —</small></>:<>{fmt(m.actual)} <small>/ {fmt(m.target)}</small></>}</span>
               <small className="state-text">{labels[m.status]}</small>
               {items.length<=2 && m.parts && m.status!=='off' && <span className="sparse-part">{m.parts[0]}</span>}
             </button>)}</div>}
