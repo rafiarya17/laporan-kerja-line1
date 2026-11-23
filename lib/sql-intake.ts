@@ -1,5 +1,5 @@
 import { neon } from '@neondatabase/serverless';
-import { validateSubmission, type Master, type Submission, type Receipt } from './lkh';
+import { EARLY_PRODUCTION_MINUTES, validateSubmission, type Master, type Submission, type Receipt } from './lkh';
 import { callReceiver } from './receiver';
 import { trialMaster } from './sql-preview-master';
 
@@ -49,7 +49,7 @@ export async function submitSqlReport(payload: Submission) {
   const [known]=await sql`SELECT received_at,leader_review IS NOT NULL AND leader_review->>'approvedAt' IS NULL AS awaiting_leader,payload=${json}::jsonb AS matches FROM lkh_reports WHERE id=${payload.id}`;
   if(known) return known.matches ? accepted(known) : conflict;
   const master=await intakeMaster(900);
-  const errors=validateSubmission(payload,master.mapping);
+  const errors=validateSubmission(payload,master.mapping,Date.now(),EARLY_PRODUCTION_MINUTES);
   if(errors.length) return {status:400,body:{ok:false,error:errors.join(' '),clearPending:true}};
   const needsLeader = process.env.VERCEL_ENV === 'production' && requiresProductionReview(payload.line);
   const [saved]=await sql`INSERT INTO lkh_reports(id,payload,master_version,leader_review,next_attempt_at)

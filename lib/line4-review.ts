@@ -1,4 +1,4 @@
-import { validateSubmission, type Submission } from './lkh';
+import { EARLY_PRODUCTION_MINUTES, validateSubmission, type Submission } from './lkh';
 import { intakeMaster, sqlDatabase } from './sql-intake';
 
 // The submitted payload stays immutable so operator retries retain the same receipt.
@@ -43,7 +43,7 @@ export async function approveLine4(command: Command, leaderValue: unknown) {
       if(Object.keys(edits).some(k=>!allowed.includes(k)))return fail('INVALID_CORRECTION');
       corrected={...row.review.corrected,...edits};
       const form={...row.payload.form,...corrected,part:row.review.deliveryPart||row.payload.form.part};
-      const errors=validateSubmission({...row.payload,form},(await intakeMaster()).mapping);
+      const errors=validateSubmission({...row.payload,form},(await intakeMaster()).mapping,Date.now(),EARLY_PRODUCTION_MINUTES);
       if(errors.length)return fail(errors.join(' '));
     }
   }

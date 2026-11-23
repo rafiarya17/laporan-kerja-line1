@@ -43,8 +43,9 @@ const SHIFT_ONE_START = 7 * 60 + 30;
 const SHIFT_TWO_START = 19 * 60 + 30;
 const MINUTES_PER_DAY = 24 * 60;
 const MINUTE_MS = 60_000;
+export const EARLY_PRODUCTION_MINUTES = 15;
 
-export function productionTimeError(form: LkhForm, now?: number): string | null {
+export function productionTimeError(form: LkhForm, now?: number, earlyMinutes = 0): string | null {
   const interval = processInterval(form);
   if (!interval) return "Isi tanggal, shift, serta jam mulai dan selesai proses yang valid.";
 
@@ -63,7 +64,14 @@ export function productionTimeError(form: LkhForm, now?: number): string | null 
       ? "Jam proses harus berada dalam Shift 2: 19.30–07.30 WIB keesokan harinya. Periksa shift atau pisahkan laporan jika pekerjaan melintasi pergantian shift."
       : "Jam proses harus berada dalam Shift 1: 07.30–19.30 WIB. Periksa shift atau pisahkan laporan jika pekerjaan melintasi pergantian shift.";
   }
-  if (now !== undefined && interval.end > now) return "Jam selesai proses belum tercapai. Kirim setelah pekerjaan selesai.";
+  if (now !== undefined) {
+    if (interval.start > now) return "Jam mulai proses belum tercapai.";
+    if (interval.end - now > earlyMinutes * MINUTE_MS) {
+      return earlyMinutes
+        ? `Laporan bisa dikirim mulai ${earlyMinutes} menit sebelum jam selesai proses.`
+        : "Kirim laporan setelah pekerjaan selesai.";
+    }
+  }
   return null;
 }
 
@@ -81,7 +89,7 @@ export function submissionDateForConfirmation(form: Pick<LkhForm, "tanggal" | "s
   return submissionDate;
 }
 
-export function validateSubmission(value: unknown, master: Master, now = Date.now()): string[] {
+export function validateSubmission(value: unknown, master: Master, now = Date.now(), earlyMinutes = 0): string[] {
   if (!value || typeof value !== "object") return ["Format laporan tidak valid."];
   const p = value as Submission;
   if (typeof p.id !== "string" || !(p.line === "LINE_99" ? /^LKH99-[0-9a-f-]{36}$/i : /^LKH-[0-9a-f-]{36}$/i).test(p.id)) return ["ID laporan tidak valid."];
@@ -122,7 +130,7 @@ export function validateSubmission(value: unknown, master: Master, now = Date.no
     if (!["MULAI BARU", "LANJUTAN SHIFT SEBELUMNYA"].includes(f.tahapDandori) || !["SELESAI - SIAP PRODUKSI", "BELUM SELESAI - LANJUT SHIFT BERIKUTNYA"].includes(f.hasilDandori) || !f.catatanDandori.trim()) errors.push("Lengkapi tahap dan hasil dandori.");
   } else {
     const interval = processInterval(f);
-    const timeError = productionTimeError(f, now);
+    const timeError = productionTimeError(f, now, earlyMinutes);
     if (timeError) errors.push(timeError);
     for (const k of ["qtyOk", "qtyRepair", "qtyReject"] as const) {
       if (!/^\d+(\.\d+)?$/.test(f[k]) || !Number.isFinite(Number(f[k])) || (p.line !== "LINE_8" && !Number.isSafeInteger(Number(f[k]))) || Number(f[k]) > 100000000) errors.push("Qty harus berupa angka nonnegatif dengan satuan yang sesuai.");

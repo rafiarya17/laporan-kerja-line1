@@ -5,7 +5,7 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import Image from "next/image";
 import MAPPING_FORM from "../constants/formMapping.json";
 
-import { initialForm, productionTimeError, resetForContext, submissionDateForConfirmation, validateSubmission } from "@/lib/lkh";
+import { EARLY_PRODUCTION_MINUTES, initialForm, productionTimeError, resetForContext, submissionDateForConfirmation, validateSubmission } from "@/lib/lkh";
 import type { Master, Submission, Receipt } from "@/lib/lkh";
 
 const SNAPSHOT = MAPPING_FORM as Master;
@@ -165,7 +165,7 @@ export default function LaporanKerjaForm() {
     if (inFlight.current || (!connection.ready && !pending) || !storageAvailable) return;
     const payload: Submission = pending || {id: (lineSelected === "LINE_99" ? "LKH99-" : "LKH-") + crypto.randomUUID(), line: lineSelected, form: formData};
     const now = Date.now();
-    const errors = pending ? [] : validateSubmission(payload, mapping, now);
+    const errors = pending ? [] : validateSubmission(payload, mapping, now, EARLY_PRODUCTION_MINUTES);
     if (errors.length) { setToast({type: "error", msg: errors.join(" ")}); window.scrollTo({top: 0, behavior: "smooth"}); return; }
     if (!pending) {
       const submissionDate = submissionDateForConfirmation(payload.form, now);
@@ -482,7 +482,7 @@ export default function LaporanKerjaForm() {
                 <span className="bg-blue-100 text-blue-800 w-8 h-8 rounded-full flex items-center justify-center text-sm shadow-sm">3</span>
                 Hasil Produksi
               </h2>
-              <p className="text-sm text-slate-600 mb-4">Tanggal laporan mengikuti tanggal mulai shift. Untuk shift 2, jam setelah tengah malam dihitung pada hari berikutnya. Isi jam selesai yang sudah berlangsung.</p>
+              <p className="text-sm text-slate-600 mb-4">Tanggal laporan mengikuti tanggal mulai shift. Untuk shift 2, jam setelah tengah malam dihitung pada hari berikutnya. Laporan produksi bisa dikirim mulai 15 menit sebelum jam selesai proses. Isi hanya jumlah final. Jika jumlah masih berubah, tunggu sampai pekerjaan selesai.</p>
 
               <div className="grid grid-cols-2 gap-6 mb-4">
                 <div className="space-y-2">
