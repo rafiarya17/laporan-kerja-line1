@@ -51,5 +51,3 @@
 .champer-detail p{margin:5px 0}
 .champer-detail .champer-plan{margin-bottom:10px}
 @media(max-width:560px){.weld-app .machine-dialog{padding:14px}.weld-app .machine-kpis,.champer-detail .champer-metrics{grid-template-columns:1fr}.machine-kpis>div{padding:7px 10px}.machine-kpis dd strong{float:right;margin-top:-1.4em}.machine-kpis dt{padding-right:65px}}
-
-.analytics .matrix-totals { background: var(--sub); font-weight: 620; }
