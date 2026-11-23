@@ -34,7 +34,7 @@ export function FloorPlan({machines, select, pilotCard}) {
     <div className="map-foot"><span>Pilih mesin untuk melihat metrik dan sesi.</span><span>{machines.length} mesin · 8 line produksi + 1 line uji</span></div>
   </>;
 }
-export function MachineDialog({machine, simulation=false, close, kpis, note, children}) {
+export function MachineDialog({machine, simulation=false, close, kpis, note, children, definitions=indicators}) {
   const ref = useRef(null);
   useEffect(()=>{
     const dialog=ref.current;
@@ -50,8 +50,8 @@ export function MachineDialog({machine, simulation=false, close, kpis, note, chi
     <div className="detail-top"><small>{labelLine(machine.line)} · {simulation?'SIMULASI':'AKTUAL'}</small><button aria-label="Tutup detail" onClick={close}>×</button></div>
     <h2 id="detail-machine-name">{machine.name}</h2>
     <p className="detail-state"><Dot state={machine.status}/>{machine.statusLabel??labels[machine.status]}</p>
-    <dl className="machine-kpis" aria-label="Tiga metrik sesi">{indicators.map(([key,label,definition])=>
-      <div key={key}><dt>{label}</dt><dd><strong>{Number.isFinite(kpis?.[key])?fmt(100*kpis[key])+'%':'—'}</strong><small>{definition}</small></dd></div>)}</dl>
+    <dl className="machine-kpis" aria-label="Tiga metrik sesi">{definitions.map(([key,label,definition])=>
+      <div key={key}><dt>{label}</dt><dd><strong>{Number.isFinite(kpis?.[key])?(100*kpis[key]).toLocaleString('id-ID',{maximumFractionDigits:2})+'%':'—'}</strong><small>{definition}</small></dd></div>)}</dl>
     {note&&<p className="kpi-note">{note}</p>}
     {children}
   </dialog>;

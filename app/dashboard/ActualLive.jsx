@@ -2,6 +2,13 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { fmt } from './metrics';
 import {Dot, FloorPlan, MachineDialog} from './LiveFloor';
 
+import {champerSessionKpis} from './champer-session-kpis.mjs';
+
+const pilotIndicators=[
+  ['availability','Availability shift','Waktu produksi terencana yang sudah berlalu dikurangi downtime, dibagi waktu terencana yang sudah berlalu.'],
+  ['performance','Performance sementara','Waktu standar untuk pcs terhitung ÷ durasi sesi. Durasi masih termasuk jeda.'],
+  ['efficiency','Efisiensi terhadap target','Pcs terhitung sejak Mulai ÷ target OK pekerjaan.']
+];
 const time = new Intl.DateTimeFormat('id-ID', {timeZone:'Asia/Jakarta',dateStyle:'medium',timeStyle:'short'});
 const hour = new Intl.DateTimeFormat('id-ID', {timeZone:'Asia/Jakarta',hour:'2-digit',minute:'2-digit'});
 
@@ -109,6 +116,8 @@ export function ActualLive({date,shift,machines}){
   const now=cloud?.serverTime??Date.now();
   const summary=sessionSummary(output,pair,board.status==='error',now);
   const {job,ended,phase,count}=summary;
+  const asOf=ended?job.endedAt:fresh?now:job?.count?.at;
+  const kpis=champerSessionKpis(job,count,asOf);
   const part=job?.part??(plan?.parts.length?plan.parts.map(p=>p.part).join(' · '):planNote);
   return <>
     <div className="map-summary"><div className="legend"><span><Dot state="received"/><b>1</b> mesin dengan integrasi PLC</span>
@@ -122,8 +131,8 @@ export function ActualLive({date,shift,machines}){
       <span className="pilot-part" title={part}>{part}</span>
       {reading&&<span className="pilot-part">D100 terakhir · {fmt(reading.value)} · {hour.format(reading.observedAt)} WIB</span>}
     </>}/>
-    {chosen&&<MachineDialog machine={chosen} close={()=>setSelected(null)} note={chosen.line===99?
-      'D100 mencatat hitungan sesi. Ketiga persentase menunggu data waktu produksi terencana, durasi mesin berjalan, serta waktu siklus dan jumlah pcs per hitungan yang terverifikasi.':
+    {chosen&&<MachineDialog machine={chosen} definitions={chosen.line===99?pilotIndicators:undefined} kpis={chosen.line===99?kpis:undefined} close={()=>setSelected(null)} note={chosen.line===99?
+      (kpis.pcs!=null?fmt(count)+' hitungan × '+kpis.pcsPerCount+' pcs = '+fmt(kpis.pcs)+' pcs bruto. MASTER_CT '+kpis.cycleSeconds+' detik/pcs. Dihitung hingga '+hour.format(asOf)+' WIB. ':'Menunggu part dengan konversi dan pembacaan sesi yang valid. ')+'MTC dan dandori belum terpantau sepanjang shift.':
       'Mesin ini belum mengirim data ke Monitor Live. Metrik sesi tersedia setelah durasi mesin dan hasil produksi dapat diukur.'}>
     {chosen.line===99?<div className="champer-detail">
     <SessionResult summary={summary} output={output} paired={pair} failed={board.status==='error'} now={now}/>
