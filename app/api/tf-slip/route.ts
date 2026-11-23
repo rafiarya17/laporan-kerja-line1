@@ -26,6 +26,7 @@ export async function POST(request: Request) {
       shift: index < 14 ? '1' : '2',
       machine: 'Mesin contoh ' + (1 + index % 8),
       part: 'PART-CONTOH-' + (101 + index),
+      revised: index % 5 === 0,
       ok: 100 + index, repair: index % 3, reject: index % 2,
       approved: day + (index < 14 ? 'T16:35:00+07:00' : 'T23:35:00+07:00'),
     }))).filter(row => (!shift || row.shift === shift) && (!line || row.line === line));
@@ -36,8 +37,11 @@ export async function POST(request: Request) {
     const start = performance.now();
     const sql = sqlDatabase();
     const reports = await sql`SELECT id,payload->>'line' AS line,
-      (payload->'form') || COALESCE(leader_review->'corrected','{}'::jsonb) AS form,
-      leader_review->>'approvedAt' AS approved, leader_review->>'deliveryPart' AS part
+      (payload->'form') || COALESCE(NULLIF(leader_review->'corrected','null'::jsonb),'{}'::jsonb) AS form,
+      leader_review->>'approvedAt' AS approved, leader_review->>'deliveryPart' AS part,
+      (NOT (payload->'form' @> COALESCE(NULLIF(leader_review->'corrected','null'::jsonb),'{}'::jsonb))
+        OR COALESCE(NULLIF(leader_review->>'deliveryPart',''),payload->'form'->>'part')
+          IS DISTINCT FROM payload->'form'->>'part') AS revised
       FROM lkh_reports WHERE leader_review IS NOT NULL AND payload->>'line' ~ '^LINE_[1-8]$'
       AND (payload->'form'->>'tanggal') BETWEEN ${date} AND ${to}
       AND (${shift}::text='' OR payload->'form'->>'shift'=${shift})
@@ -54,7 +58,7 @@ export async function POST(request: Request) {
       if (!interval || interval.end <= interval.start) { invalid++; continue; }
       if (interval.end > now) { waitingEnd++; continue; }
       rows.push({id:report.id,date:form.tanggal,line:report.line,shift:form.shift,machine:form.mesin,part:report.part || form.part,
-        ok:form.qtyOk,repair:form.qtyRepair,reject:form.qtyReject,approved:report.approved});
+        ok:form.qtyOk,repair:form.qtyRepair,reject:form.qtyReject,approved:report.approved,revised:report.revised});
     }
     return Response.json({rows,pending,waitingEnd,invalid,asOf:new Date(now).toISOString()},
       {headers:{...headers,'Server-Timing':'read;dur='+(performance.now()-start).toFixed(1)}});

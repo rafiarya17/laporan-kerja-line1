@@ -21,12 +21,17 @@ const columns = [
     key, ['OK', 'Repair', 'Reject'][i],
     row => number.format(row[key]) + (row.line === 'LINE_8' ? (key === 'ok' ? ' batang' : ' mm') : ' pcs')
   ]),
+  ['revised', 'Revisi', row => row.revised === true ? 'Ya' : row.revised === false ? 'Tidak' : '—'],
   ['approved', 'Disetujui (WIB)', row => timestamp.format(new Date(row.approved))]
 ];
-const preference = 'berlindo.tf-slip.columns.v1';
+const preference = 'berlindo.tf-slip.columns.v2';
 let selected = columns.map(([key]) => key);
 try {
-  const saved = JSON.parse(localStorage.getItem(preference));
+  const currentPreference = localStorage.getItem(preference);
+  const saved = currentPreference === null
+    ? JSON.parse(localStorage.getItem('berlindo.tf-slip.columns.v1'))
+    : JSON.parse(currentPreference);
+  if (currentPreference === null && Array.isArray(saved)) saved.push('revised');
   const known = selected.filter(key => Array.isArray(saved) && saved.includes(key));
   if (known.length) selected = known;
 } catch { /* Browser storage is optional. */ }
