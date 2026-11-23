@@ -295,3 +295,8 @@ async function submitTarget(payload){
   await startOperation('target',payload);
  }catch(e){notify(e.message,true,false);}finally{targetPreparing=false;if(contextMatches()&&!data.reportsLoaded&&!loading)load();}
 }
+
+$('slipLink').addEventListener('click', function () {
+ const filters = new URLSearchParams({date:$('date').value, line:$('line').value, shift:$('shift').value});
+ this.href = '/tf-slip.html?' + filters;
+});
