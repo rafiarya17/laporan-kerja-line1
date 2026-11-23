@@ -40,7 +40,9 @@ for(const r of byPart){
 }
 function MartMatrix({current,mart}){
  const {byPart,mergedMachines,lastReport}=useMemo(()=>prepareMart(mart),[mart]);
- const [start,setStart]=useState(current.date),[end,setEnd]=useState(current.date),[shift,setShift]=useState(String(current.shift));
+ const showLatest=Boolean(lastReport)&&(current.date<mart.start||current.date>mart.end);
+ const initialDate=showLatest?lastReport:current.date;
+ const [start,setStart]=useState(initialDate),[end,setEnd]=useState(initialDate),[shift,setShift]=useState(showLatest?'all':String(current.shift));
  const [line,setLine]=useState('all'),[machine,setMachine]=useState('all'),[grain,setGrain]=useState('machine');
  const [cols,setCols]=useState(()=>{const x=saved('mart-columns',defaultColumns);return Array.isArray(x)&&x.some(k=>attrs.some(([a])=>a===k))?x:defaultColumns;});
  const source=grain==='part'?byPart:mergedMachines;
@@ -54,12 +56,12 @@ function MartMatrix({current,mart}){
  const spanOK=start&&end&&start<=end&&start>=mart.start&&end<=mart.end;
  const overview=grain==='department'||grain==='line';
  const displayRows=overview?summarizeScope(rows,grain):rows;
- return <section className="analytics"><div className="map-head"><div><small className="overline">WELDING · DATA MART PLANT 3</small><h1>Hasil produksi</h1><p>Salinan Data Mart {displayDate(mart.captured)} WIB · Line 1–8</p></div><div className="tools"><button onClick={()=>period(current.date,String(current.shift))}>Shift berjalan</button><button onClick={()=>period(lastReport,'all')}>Tanggal laporan terakhir</button></div></div>
+ return <section className="analytics"><div className="map-head"><div><small className="overline">WELDING · DATA MART PLANT 3</small><h1>Hasil produksi</h1><p>Salinan Data Mart {displayDate(mart.captured)} WIB · Line 1–8</p></div><div className="tools"><button onClick={()=>period(current.date,String(current.shift))}>Shift berjalan</button><button disabled={!lastReport} onClick={()=>{period(lastReport,'all');setLine('all');setMachine('all');}}>Tanggal laporan terakhir</button></div></div>
  <div className="filters"><label>Dari tanggal<input type="date" value={start} onChange={e=>setStart(e.target.value)}/></label><label>Sampai tanggal<input type="date" value={end} onChange={e=>setEnd(e.target.value)}/></label>
  <label>Shift<select aria-label="Shift" value={shift} onChange={e=>setShift(e.target.value)}><option value="all">Semua shift</option><option value="1">Shift 1</option><option value="2">Shift 2</option></select></label>
  <label>Line<select aria-label="Line" value={line} onChange={e=>{setLine(e.target.value);setMachine('all');}}><option value="all">Welding · Line 1–8</option>{[1,2,3,4,5,6,7,8].map(n=><option key={n} value={n}>{labelLine(n)}</option>)}</select></label>
  <label>Mesin<select aria-label="Mesin" value={machine} onChange={e=>setMachine(e.target.value)}><option value="all">Semua mesin</option>{machines.map(m=><option key={m}>{m}</option>)}</select></label></div>
- <p className="coverage">Cakupan salinan {mart.start} sampai {mart.end}. {spanOK?(reports?'':'Belum ada laporan hasil pada pilihan ini.'):'Pilih periode di dalam cakupan salinan.'}</p>
+ <p className="coverage">Cakupan salinan {mart.start} sampai {mart.end}. {start&&end&&start>end?'Tanggal mulai harus sama dengan atau sebelum tanggal akhir.':spanOK?(reports?'':'Belum ada laporan hasil pada pilihan ini.'):'Pilih periode di dalam cakupan salinan.'}</p>
  <div className="an-kpis"><article><small>Mesin dalam pilihan</small><strong>{spanOK?new Set(rows.map(r=>r.line+'|'+r.machine)).size:'—'}</strong></article><article><small>OK dilaporkan · pcs</small><strong>{spanOK&&pcsOK.length?fmt(pcsOK.reduce((n,r)=>n+r.ok,0)):'—'}</strong></article><article><small>Tanggal laporan terakhir di salinan</small><strong>{lastReport}</strong></article></div>
  <div className="matrix-panel"><div className="section-head"><h2>Matriks pekerjaan</h2><div className="matrix-controls"><label>Baris <select aria-label="Baris" value={grain} onChange={e=>{setGrain(e.target.value);}}><option value="machine">Mesin per shift</option><option value="part">Part per mesin dan shift</option><option value="line">Line · total periode</option><option value="department">Welding · total periode</option></select></label><details className="metric-menu"><summary>Atur metrik</summary><div>{attrs.map(([k,l])=><label key={k}><input type="checkbox" checked={cols.includes(k)} disabled={cols.length===1&&cols[0]===k} onChange={e=>{const next=e.target.checked?[...cols,k]:cols.filter(x=>x!==k);setCols(next);save('mart-columns',next);}}/>{l}</label>)}</div></details></div></div>
  <div className="table-clip"><table><thead><tr>{[...(overview?['Cakupan']:['Tanggal','Shift','Line','Mesin']),...(grain==='part'?['Part']:[]),'Satuan',...chosen.map(c=>c[1])].map(x=><th key={x}>{x}</th>)}</tr></thead><tbody>{spanOK&&displayRows.map((r,i)=><tr key={i}>{overview?<th>{r.label}</th>:<><th>{r.date}</th><td>{r.shift}</td><td>{r.line}</td><td>{r.machine}</td></>}{grain==='part'&&<td>{r.part}</td>}<td>{r.unit??'—'}</td>{chosen.map(([k])=><td key={k}>{cells(r,k)}</td>)}</tr>)}</tbody></table></div></div>
