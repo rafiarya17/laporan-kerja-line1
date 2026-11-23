@@ -30,10 +30,21 @@ try {
   const known = selected.filter(key => Array.isArray(saved) && saved.includes(key));
   if (known.length) selected = known;
 } catch { /* Browser storage is optional. */ }
-let rows = [];
+let rows = null;
 let current;
 
 function renderTable() {
+  const terms = el('search').value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const matches = (rows ?? []).filter(row => {
+    const text = [row.part, row.machine].join(' ').toLowerCase();
+    return terms.every(term => text.includes(term));
+  });
+  const searchStatus = el('search-status');
+  searchStatus.hidden = rows === null || !terms.length;
+  searchStatus.textContent = searchStatus.hidden ? '' : matches.length
+    ? matches.length + ' dari ' + rows.length + ' laporan cocok.'
+    : 'Tidak ada part atau mesin yang cocok dalam filter ini.';
+  el('print').disabled = !matches.length;
   const visible = columns.filter(([key]) => selected.includes(key));
   const heading = table.tHead.rows[0];
   heading.replaceChildren();
@@ -44,7 +55,7 @@ function renderTable() {
     heading.append(th);
   }
   const body = document.createElement('tbody');
-  for (const row of rows) {
+  for (const row of matches) {
     const tr = body.insertRow();
     for (const [key, , display] of visible) {
       const cell = tr.insertCell();
@@ -53,7 +64,7 @@ function renderTable() {
     }
   }
   table.tBodies[0].replaceWith(body);
-  table.hidden = !rows.length;
+  table.hidden = !matches.length;
 }
 
 function syncChoices() {
@@ -89,9 +100,8 @@ async function load() {
   current?.abort();
   const controller = new AbortController();
   current = controller;
-  rows = [];
+  rows = null;
   renderTable();
-  el('print').disabled = true;
   el('scope').textContent = '';
   el('timing').replaceChildren();
   const from = el('date').value, to = el('to').value;
@@ -120,7 +130,6 @@ async function load() {
     duration.id = 'duration';
     duration.textContent = ' · Dimuat dalam ' + ((performance.now() - start) / 1000).toFixed(2) + ' detik';
     el('timing').append('Data per ' + timestamp.format(new Date(data.asOf)) + ' WIB', duration);
-    el('print').disabled = !rows.length;
     history.replaceState(null, '', '?' + query);
   } catch (error) {
     if (current === controller) el('summary').textContent = error.message || 'Gagal memuat TF Slip.';
@@ -130,5 +139,6 @@ async function load() {
 }
 for (const key of filters) el(key).onchange = load;
 el('refresh').onclick = load;
+el('search').addEventListener('input', renderTable);
 el('print').onclick = () => window.print();
 load();

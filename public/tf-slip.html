@@ -6,8 +6,8 @@
   <meta name="robots" content="noindex,nofollow">
   <title>TF Slip Web · Berlindo</title>
   <link rel="stylesheet" href="/leader.css">
-  <link rel="stylesheet" href="/tf-slip.css?v=range1">
-  <script defer src="/tf-slip.js?v=range1"></script>
+  <link rel="stylesheet" href="/tf-slip.css?v=search1">
+  <script defer src="/tf-slip.js?v=search1"></script>
 </head>
 <body>
   <main>
@@ -21,6 +21,7 @@
         <label>Sampai tanggal<input required type="date" id="to"></label>
         <label>Shift<select id="shift"><option value="">Semua shift</option><option value="1">Shift 1</option><option value="2">Shift 2</option></select></label>
         <label>Line<select id="line"><option value="">Semua line</option></select></label>
+        <label id="search-field">Cari part atau mesin<input type="search" id="search" placeholder="Nama part, kode part, atau mesin"></label>
         <button id="refresh" type="button">Muat ulang</button>
       </div>
       <div class="actions screen-only">
@@ -33,6 +34,7 @@
       <p id="scope" class="print-only"></p>
       <p id="summary" class="screen-only" role="status"></p>
       <p id="timing" class="screen-only"></p>
+      <p id="search-status" class="screen-only" role="status" hidden></p>
       <div class="scroll">
         <table hidden aria-label="Hasil produksi terverifikasi"><thead><tr></tr></thead><tbody></tbody></table>
       </div>

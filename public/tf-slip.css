@@ -2,6 +2,7 @@ main { max-width: 1320px; margin: auto; padding: clamp(16px, 4vw, 42px); }
 h1 { margin-bottom: 4px; }
 .filters, .actions, #choices { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
 .filters label { flex: 1 1 9em; }
+.filters #search-field { flex: 2 1 17em; }
 .actions { align-items: start; margin-top: 16px; justify-content: space-between; }
 #columns { flex: 1 1 14em; }
 summary { cursor: pointer; width: fit-content; padding: 10px 14px; border: 1px solid var(--line); border-radius: 9px; font-weight: 650; }
@@ -15,6 +16,7 @@ td, th { text-align: left; vertical-align: top; padding: 10px; border-bottom: 1p
 th { font-size: .85rem; }
 td[data-key="ok"], td[data-key="repair"], td[data-key="reject"] { white-space: nowrap; }
 #summary { margin: 18px 0 2px; font-weight: 650; }
+#search-status { margin: 8px 0; font-weight: 650; }
 #timing { margin-top: 2px; color: #526967; font-size: .9rem; }
 .print-only { display: none; }
 @page { size: A4 landscape; margin: 12mm; }
