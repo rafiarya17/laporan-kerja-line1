@@ -241,3 +241,13 @@ dialog form > .actions { position: sticky; bottom: calc(-1 * var(--dialog-pad));
 }
 
 .reportlist .repeatstate { display:none; }
+
+.production-review { display:grid; gap:16px; margin-top:16px; border-top:1px solid #c9d9d5; padding-top:16px; }
+.production-review h3 { margin:0; }
+.production-review button, #reportList [data-detail] { min-height:48px; }
+#reportList [data-detail] { border:2px solid #15746b; color:#125d55; font-weight:700; }
+@media (max-width:600px) {
+ #reportList .actions { display:grid; grid-template-columns:1fr; gap:10px; }
+ #reportList .actions button, .production-review button { width:100%; min-height:52px; }
+ .production-review .formgrid { grid-template-columns:minmax(0,1fr); }
+}
