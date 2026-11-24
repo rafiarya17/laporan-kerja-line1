@@ -11,29 +11,56 @@ const timestamp = new Intl.DateTimeFormat('id-ID', {
   hour: '2-digit', minute: '2-digit', second: '2-digit'
 });
 const showDate = iso => day.format(new Date(iso + 'T00:00:00Z'));
+const quantities = [['ok', 'OK'], ['repair', 'Repair'], ['reject', 'Reject']];
+const formatQuantity = (row, key, value) =>
+  number.format(value) + (row.line === 'LINE_8' ? (key === 'ok' ? ' batang' : ' mm') : ' pcs');
+
 const columns = [
   ['date', 'Tanggal produksi', row => showDate(row.date)],
   ['line', 'Line', row => row.line.replace('_', ' ')],
   ['shift', 'Shift', row => row.shift],
   ['machine', 'Mesin', row => row.machine],
   ['part', 'Part', row => row.part],
-  ...['ok', 'repair', 'reject'].map((key, i) => [
-    key, ['OK', 'Repair', 'Reject'][i],
-    row => number.format(row[key]) + (row.line === 'LINE_8' ? (key === 'ok' ? ' batang' : ' mm') : ' pcs')
-  ]),
+  ...quantities.map(([key, label]) => [key, label, row => formatQuantity(row, key, row[key]), 'Total ' + label]),
   ['revised', 'Revisi', row => row.revised === true ? 'Ya' : row.revised === false ? 'Tidak' : '—'],
-  ['approved', 'Disetujui (WIB)', row => timestamp.format(new Date(row.approved))]
+  ['approved', 'Disetujui (WIB)', row => timestamp.format(new Date(row.approved)), 'Terakhir disetujui (WIB)']
 ];
+const shiftColumns = quantities.flatMap(([key, label]) => ['1', '2'].map(shift => [
+  key + shift, label + ' Shift ' + shift, row => formatQuantity(row, key, row.byShift[shift]?.[key] ?? 0)
+]));
+const allColumns = [...columns.slice(0, -2), ...shiftColumns, ...columns.slice(-2)];
+const defaultSelection = columns.map(([key]) => key);
+const showingAllShifts = () => el('shift').value === '';
+
+function summarizeShifts(reports) {
+  const groups = new Map();
+  for (const report of reports) {
+    const id = JSON.stringify([report.date, report.line, report.machine, report.part]);
+    if (!groups.has(id)) {
+      groups.set(id, { ...report, ok: 0, repair: 0, reject: 0, byShift: {} });
+    }
+    const group = groups.get(id);
+    const breakdown = group.byShift[report.shift] ??= { ok: 0, repair: 0, reject: 0 };
+    for (const [key] of quantities) {
+      const quantity = Number(report[key]);
+      breakdown[key] += quantity;
+      group[key] += quantity;
+    }
+    if (report.revised === true) group.revised = true;
+    if (Date.parse(report.approved) > Date.parse(group.approved)) group.approved = report.approved;
+  }
+  return Array.from(groups.values(), group => ({ ...group, shift: Object.keys(group.byShift).join(' + ') }));
+}
 const preference = 'berlindo.tf-slip.columns.v2';
-let selected = columns.map(([key]) => key);
+let selected = defaultSelection;
 try {
   const currentPreference = localStorage.getItem(preference);
   const saved = currentPreference === null
     ? JSON.parse(localStorage.getItem('berlindo.tf-slip.columns.v1'))
     : JSON.parse(currentPreference);
   if (currentPreference === null && Array.isArray(saved)) saved.push('revised');
-  const known = selected.filter(key => Array.isArray(saved) && saved.includes(key));
-  if (known.length) selected = known;
+  const known = allColumns.map(([key]) => key).filter(key => Array.isArray(saved) && saved.includes(key));
+  if (defaultSelection.some(key => known.includes(key))) selected = known;
 } catch { /* Browser storage is optional. */ }
 let rows = null;
 let current;
@@ -50,17 +77,19 @@ function renderTable() {
     ? matches.length + ' dari ' + rows.length + ' laporan cocok.'
     : 'Tidak ada part atau mesin yang cocok dalam filter ini.';
   el('print').disabled = !matches.length;
-  const visible = columns.filter(([key]) => selected.includes(key));
+  const allShifts = showingAllShifts();
+  const visible = (allShifts ? allColumns : columns).filter(([key]) => selected.includes(key));
   const heading = table.tHead.rows[0];
   heading.replaceChildren();
-  for (const [, label] of visible) {
+  for (const [, label, , totalLabel] of visible) {
     const th = document.createElement('th');
     th.scope = 'col';
-    th.textContent = label;
+    th.textContent = allShifts && totalLabel ? totalLabel : label;
     heading.append(th);
   }
   const body = document.createElement('tbody');
-  for (const row of matches) {
+  const result = allShifts ? summarizeShifts(matches) : matches;
+  for (const row of result) {
     const tr = body.insertRow();
     for (const [key, , display] of visible) {
       const cell = tr.insertCell();
@@ -73,20 +102,25 @@ function renderTable() {
 }
 
 function syncChoices() {
-  for (const input of el('choices').querySelectorAll('input')) {
-    input.checked = selected.includes(input.value);
-    input.disabled = input.checked && selected.length === 1;
+  const allShifts = showingAllShifts();
+  const selectedRegular = defaultSelection.filter(key => selected.includes(key)).length;
+  for (const [key, name, , totalLabel] of allColumns) {
+    const input = el('choices').querySelector('input[value="' + key + '"]');
+    const regular = defaultSelection.includes(key);
+    input.checked = selected.includes(key);
+    input.disabled = regular && input.checked && selectedRegular === 1;
+    input.parentElement.hidden = !regular && !allShifts;
+    input.nextElementSibling.textContent = allShifts && totalLabel ? totalLabel : name;
   }
 }
-for (const [key, name] of columns) {
+for (const [key] of allColumns) {
   const label = document.createElement('label');
   const input = document.createElement('input');
   input.type = 'checkbox';
   input.value = key;
-  label.append(input, name);
+  label.append(input, document.createElement('span'));
   el('choices').append(label);
 }
-syncChoices();
 el('choices').addEventListener('change', () => {
   selected = Array.from(el('choices').querySelectorAll('input:checked'), input => input.value);
   syncChoices();
@@ -106,6 +140,7 @@ async function load() {
   const controller = new AbortController();
   current = controller;
   rows = null;
+  syncChoices();
   renderTable();
   el('scope').textContent = '';
   el('timing').replaceChildren();

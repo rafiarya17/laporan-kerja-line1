@@ -9,12 +9,13 @@ summary { cursor: pointer; width: fit-content; padding: 10px 14px; border: 1px s
 summary:focus-visible { outline: 3px solid #dba344; }
 #choices { gap: 0 15px; padding-top: 8px; }
 #choices label { flex-direction: row; align-items: center; min-height: 44px; cursor: pointer; }
+#choices label[hidden] { display: none; }
 #choices input { height: 18px; width: 18px; min-height: 0; accent-color: var(--teal); }
 .scroll { overflow-x: auto; }
 table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
 td, th { text-align: left; vertical-align: top; padding: 10px; border-bottom: 1px solid #dce4df; }
 th { font-size: .85rem; }
-td[data-key="ok"], td[data-key="repair"], td[data-key="reject"] { white-space: nowrap; }
+td[data-key^="ok"], td[data-key^="repair"], td[data-key^="reject"] { white-space: nowrap; }
 #summary { margin: 18px 0 2px; font-weight: 650; }
 #search-status { margin: 8px 0; font-weight: 650; }
 #timing { margin-top: 2px; color: #526967; font-size: .9rem; }
@@ -29,6 +30,9 @@ td[data-key="ok"], td[data-key="repair"], td[data-key="reject"] { white-space: n
   p, #summary, #timing { margin: 3pt 0; color: #222; }
   .scroll { overflow: visible; }
   table { margin-top: 8pt; }
+  table:has(th:nth-child(12)) { font-size: 8pt; }
+  table:has(th:nth-child(12)) :is(th, td) { padding: 3pt; white-space: normal; }
+  table:has(th:nth-child(12)) th { font-size: .9em; }
   thead { display: table-header-group; }
   tr { break-inside: avoid; page-break-inside: avoid; }
   td, th { padding: 4pt; border: .5pt solid #999; overflow-wrap: anywhere; }
