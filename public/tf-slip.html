@@ -6,8 +6,8 @@
   <meta name="robots" content="noindex,nofollow">
   <title>TF Slip Web · Berlindo</title>
   <link rel="stylesheet" href="/leader.css">
-  <link rel="stylesheet" href="/tf-slip.css?v=shift-totals1">
-  <script defer src="/tf-slip.js?v=shift-totals1"></script>
+  <link rel="stylesheet" href="/tf-slip.css?v=layout1">
+  <script defer src="/tf-slip.js?v=layout1"></script>
 </head>
 <body>
   <main>
@@ -25,10 +25,24 @@
         <button id="refresh" type="button">Muat ulang</button>
       </div>
       <div class="actions screen-only">
-        <details id="columns">
-          <summary>Pilih kolom</summary>
-          <div id="choices"></div>
-        </details>
+        <div class="display-options" id="choices">
+          <details id="metrics">
+            <summary>Metrik</summary>
+            <div class="check-menu">
+              <div id="total-metrics" class="check-group" role="group" aria-label="Metrik utama"></div>
+              <div id="shift-one-metrics" class="check-group" role="group" aria-labelledby="shift-one-heading">
+                <p id="shift-one-heading">Shift 1</p>
+              </div>
+              <div id="shift-two-metrics" class="check-group" role="group" aria-labelledby="shift-two-heading">
+                <p id="shift-two-heading">Shift 2</p>
+              </div>
+            </div>
+          </details>
+          <details id="columns">
+            <summary>Kolom informasi</summary>
+            <div class="check-menu"><div id="info-columns" class="check-group"></div></div>
+          </details>
+        </div>
         <button type="button" class="primary" id="print" disabled>Cetak / Simpan PDF</button>
       </div>
       <p id="scope" class="print-only"></p>
@@ -36,7 +50,7 @@
       <p id="timing" class="screen-only"></p>
       <p id="search-status" class="screen-only" role="status" hidden></p>
       <div class="scroll">
-        <table hidden aria-label="Hasil produksi terverifikasi"><thead><tr></tr></thead><tbody></tbody></table>
+        <table hidden aria-label="Hasil produksi terverifikasi"><colgroup></colgroup><thead><tr></tr></thead><tbody></tbody></table>
       </div>
       <small class="screen-only">Jumlah laporan mencakup input melalui verifikasi web. Kelengkapan terhadap rencana shift perlu dicocokkan oleh leader.</small>
     </section>

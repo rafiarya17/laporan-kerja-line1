@@ -2,6 +2,7 @@
 
 const el = id => document.getElementById(id);
 const table = document.querySelector('table');
+const columnGroup = table.querySelector('colgroup');
 const params = new URLSearchParams(location.search);
 const filters = ['date', 'to', 'shift', 'line'];
 const number = new Intl.NumberFormat('id-ID', { maximumFractionDigits: 12 });
@@ -31,6 +32,79 @@ const shiftColumns = quantities.flatMap(([key, label]) => ['1', '2'].map(shift =
 const allColumns = [...columns.slice(0, -2), ...shiftColumns, ...columns.slice(-2)];
 const defaultSelection = columns.map(([key]) => key);
 const showingAllShifts = () => el('shift').value === '';
+const metricGroups = new Map(quantities.flatMap(([key]) => [
+  [key, 'total-metrics'], [key + '1', 'shift-one-metrics'], [key + '2', 'shift-two-metrics']
+]));
+const defaultWidths = { date: 118, line: 78, shift: 65, machine: 160, part: 230, revised: 77, approved: 164 };
+const minWidth = 64, maxWidth = 720;
+const widthPreference = 'berlindo.tf-slip.column-widths.v1';
+const columnWidths = new Map();
+try {
+  const saved = JSON.parse(localStorage.getItem(widthPreference));
+  for (const [key] of allColumns) {
+    const width = saved?.[key];
+    if (Number.isInteger(width) && width >= minWidth && width <= maxWidth) columnWidths.set(key, width);
+  }
+} catch { /* Browser storage is optional. */ }
+
+function updateTableWidth() {
+  const width = Array.from(columnGroup.children).reduce((sum, col) => sum + parseInt(col.style.width, 10), 0);
+  table.style.setProperty('--table-width', width + 'px');
+}
+
+function addColumnResizer(th, col, key, label) {
+  const defaultWidth = defaultWidths[key] ?? 98;
+  const handle = document.createElement('div');
+  handle.className = 'column-resizer screen-only';
+  handle.tabIndex = 0;
+  handle.setAttribute('role', 'separator');
+  handle.setAttribute('aria-orientation', 'vertical');
+  handle.setAttribute('aria-label', 'Lebar kolom ' + label);
+  handle.setAttribute('aria-valuemin', minWidth);
+  handle.setAttribute('aria-valuemax', maxWidth);
+  handle.title = 'Seret untuk mengatur lebar. Klik dua kali untuk mengembalikan lebar awal.';
+  function applyWidth(width) {
+    const clamped = Math.min(maxWidth, Math.max(minWidth, Math.round(width)));
+    col.style.width = clamped + 'px';
+    handle.setAttribute('aria-valuenow', clamped);
+    return clamped;
+  }
+  let width = applyWidth(columnWidths.get(key) ?? defaultWidth);
+  function resize(next) {
+    width = applyWidth(next);
+    columnWidths.set(key, width);
+    updateTableWidth();
+  }
+  function saveWidths() {
+    try { localStorage.setItem(widthPreference, JSON.stringify(Object.fromEntries(columnWidths))); } catch { /* Optional. */ }
+  }
+  let drag;
+  handle.addEventListener('pointerdown', event => {
+    if (event.button !== 0 || !event.isPrimary) return;
+    event.preventDefault();
+    handle.focus({ preventScroll: true });
+    handle.setPointerCapture(event.pointerId);
+    drag = { id: event.pointerId, x: event.clientX, width };
+    handle.dataset.dragging = '';
+  });
+  handle.addEventListener('pointermove', event => {
+    if (drag?.id === event.pointerId) resize(drag.width + event.clientX - drag.x);
+  });
+  handle.addEventListener('lostpointercapture', () => {
+    drag = null;
+    delete handle.dataset.dragging;
+    saveWidths();
+  });
+  handle.addEventListener('dblclick', () => { resize(defaultWidth); saveWidths(); });
+  handle.addEventListener('keydown', event => {
+    const widths = { ArrowLeft: width - 12, ArrowRight: width + 12, Home: defaultWidth };
+    if (!Object.hasOwn(widths, event.key)) return;
+    event.preventDefault();
+    resize(widths[event.key]);
+    saveWidths();
+  });
+  th.append(handle);
+}
 
 function summarizeShifts(reports) {
   const groups = new Map();
@@ -81,12 +155,19 @@ function renderTable() {
   const visible = (allShifts ? allColumns : columns).filter(([key]) => selected.includes(key));
   const heading = table.tHead.rows[0];
   heading.replaceChildren();
-  for (const [, label, , totalLabel] of visible) {
+  columnGroup.replaceChildren();
+  for (const [key, label, , totalLabel] of visible) {
+    const col = document.createElement('col');
+    col.dataset.key = key;
+    columnGroup.append(col);
     const th = document.createElement('th');
     th.scope = 'col';
-    th.textContent = allShifts && totalLabel ? totalLabel : label;
+    const title = allShifts && totalLabel ? totalLabel : label;
+    th.textContent = title;
+    addColumnResizer(th, col, key, title);
     heading.append(th);
   }
+  updateTableWidth();
   const body = document.createElement('tbody');
   const result = allShifts ? summarizeShifts(matches) : matches;
   for (const row of result) {
@@ -103,6 +184,8 @@ function renderTable() {
 
 function syncChoices() {
   const allShifts = showingAllShifts();
+  el('shift-one-metrics').hidden = !allShifts;
+  el('shift-two-metrics').hidden = !allShifts;
   const selectedRegular = defaultSelection.filter(key => selected.includes(key)).length;
   for (const [key, name, , totalLabel] of allColumns) {
     const input = el('choices').querySelector('input[value="' + key + '"]');
@@ -119,13 +202,27 @@ for (const [key] of allColumns) {
   input.type = 'checkbox';
   input.value = key;
   label.append(input, document.createElement('span'));
-  el('choices').append(label);
+  el(metricGroups.get(key) ?? 'info-columns').append(label);
 }
 el('choices').addEventListener('change', () => {
   selected = Array.from(el('choices').querySelectorAll('input:checked'), input => input.value);
   syncChoices();
   try { localStorage.setItem(preference, JSON.stringify(selected)); } catch { /* Optional. */ }
   renderTable();
+});
+const menus = Array.from(el('choices').querySelectorAll('details'));
+document.addEventListener('click', event => {
+  for (const menu of menus) {
+    if (!menu.contains(event.target)) menu.open = false;
+  }
+});
+el('choices').addEventListener('keydown', event => {
+  if (event.key !== 'Escape') return;
+  const menu = event.target.closest('details[open]');
+  if (!menu) return;
+  event.preventDefault();
+  menu.open = false;
+  menu.querySelector('summary').focus();
 });
 for (let i = 1; i <= 8; i++) el('line').add(new Option('Line ' + i, 'LINE_' + i));
 el('date').value = params.get('date') || new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10);
