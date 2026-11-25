@@ -1,4 +1,4 @@
-import { EARLY_PRODUCTION_MINUTES, validateSubmission, type Submission } from './lkh';
+import { EARLY_PRODUCTION_MINUTES, processInterval, validateSubmission, type Master, type Submission } from './lkh';
 import { intakeMaster, sqlDatabase } from './sql-intake';
 
 // The submitted payload stays immutable so operator retries retain the same receipt.
@@ -88,7 +88,7 @@ export async function remapReviewPart(id: string, hash: string, part: string, ac
   return Boolean(updated);
 }
 
-export async function line4ReviewSnapshot(date: string, shift: string, line: string) {
+export async function line4ReviewSnapshot(date: string, shift: string, line: string, webOnly = false) {
   const sql = sqlDatabase();
   const rows = await sql`SELECT id,payload,leader_review AS review,delivery_state,
     encode(sha256(convert_to(payload::text || COALESCE(leader_review->>'deliveryPart',''),'UTF8')),'hex') AS hash
@@ -99,20 +99,46 @@ export async function line4ReviewSnapshot(date: string, shift: string, line: str
     ORDER BY received_at`;
   const requests = [];
   const reports = [];
+  const now = Date.now();
   for (const row of rows) {
     const form = {...row.payload.form,...row.review.corrected} as Submission['form'];
     const approved = Boolean(row.review.approvedAt);
     if (approved) requests.push({ id:row.id, requestId:row.review.requestId, state:'DONE' });
+    let state = !approved?'WAITING_LEADER':row.delivery_state==='NEEDS_REVIEW'?'HELD':'WAITING_TF_SYNC';
+    let validation = row.delivery_state==='NEEDS_REVIEW'?'Penerusan ke Google Sheets perlu diperiksa oleh admin.':'';
+    if (approved && webOnly) {
+      state = 'APPROVED';
+      if (form.jenisAktivitas !== 'DANDORI') {
+        const interval = processInterval(form);
+        if (!interval || interval.end <= interval.start) validation = [validation,'Jam proses perlu diperiksa.'].filter(Boolean).join(' ');
+        else state = interval.end > now ? 'WAITING_PROCESS_END' : 'TF_WEB_READY';
+      }
+    }
     reports.push({
       id: row.id, line: row.payload.line, date, shift, hash: row.hash,
       machine: form.mesin, part: row.review.deliveryPart || form.part, originalPart: form.part, reviewSource: 'LINE4_WEB', viewOnly: false,
       operator: form.operator.map(name=>name==='__other_option__'?form.operatorLainnya:name).join(', '),
-      state: !approved?'WAITING_LEADER':row.delivery_state==='NEEDS_REVIEW'?'HELD':'WAITING_TF_SYNC',
-      validation: row.delivery_state==='NEEDS_REVIEW'?'Penerusan perlu diperiksa oleh admin.':'',
+      state,
+      validation,
+      ...(webOnly && approved ? {sheetDelivery:row.delivery_state} : {}),
       reviewFields:Object.fromEntries(reviewFields(form).map(k=>[k,form[k]])),
       input: {ok:Number(form.qtyOk),repair:Number(form.qtyRepair),reject:Number(form.qtyReject),
         start:form.jamMulaiProses,end:form.jamSelesaiProses,overtime:form.lembur,problem:form.permasalahan,action:form.tindakan},
     });
   }
   return {reports,requests};
+}
+
+export async function webReviewWorkspace(date: string, shift: string, line: string) {
+  const sql = sqlDatabase();
+  const [snapshot, master] = await Promise.all([
+    line4ReviewSnapshot(date, shift, line, true),
+    sql`SELECT mapping FROM lkh_master_cache WHERE id=true`.catch(() => []),
+  ]);
+  const mapping = (master[0]?.mapping || {}) as Master;
+  const catalog = Object.entries(mapping)
+    .filter(([name]) => /^LINE_[1-8]$/.test(name) && (!line || name === line))
+    .flatMap(([line, config]) => Object.entries(config.mesin_part_mapping).flatMap(([machine, partList]) =>
+      partList.options.filter(part => part !== '__other_option__').map(part => ({line, machine, part}))));
+  return {date, shift, reportLine:line, checkedAt:new Date().toISOString(), catalog, targets:[], ...snapshot};
 }

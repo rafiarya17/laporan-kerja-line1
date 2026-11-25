@@ -2,7 +2,7 @@ const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const intake=require('../.test-build/sql-intake');
 const {initialForm}=require('../.test-build/lkh');
-const {approveLine4}=require('../.test-build/line4-review');
+const {approveLine4,webReviewWorkspace}=require('../.test-build/line4-review');
 const {drainSqlDelivery}=require('../.test-build/sql-delivery');
 
 test('a leader correction releases only the corrected report, with safe retries',async t=>{
@@ -37,4 +37,39 @@ test('a leader correction releases only the corrected report, with safe retries'
   });
   assert.equal(form.qtyOk,'10');
   assert.deepEqual(sent,[{id,line:'LINE_6',form:{...form,qtyOk:'9'}}]);
+});
+
+test('Web App reports and TF Web readiness come from Neon independently of Sheets delivery',async t=>{
+  const form={...initialForm,tanggal:'2026-01-15',shift:'1',operator:['A'],mesin:'M',part:'P',
+    jamMulaiProses:'08:00',jamSelesaiProses:'09:00',qtyOk:'10'};
+  const received=(id,review,delivery_state,fields={})=>({id,review,delivery_state,hash:'test',payload:{line:'LINE_6',form:{...form,...fields}}});
+  const approved={approvedAt:'2026-01-15T02:00:00Z',requestId:'request'};
+  const rows=[
+    received('waiting',{},'PENDING'),
+    received('ready',{...approved,corrected:{qtyOk:'9'}},'PENDING'),
+    received('failed-forward',approved,'NEEDS_REVIEW'),
+    received('ends-later',approved,'DELIVERED',{tanggal:'2099-01-15'}),
+    received('dandori',approved,'DELIVERED',{jenisAktivitas:'DANDORI'}),
+    received('bad-time',approved,'DELIVERED',{jamMulaiProses:''}),
+  ];
+  t.mock.method(intake,'intakeMaster',()=>{throw Error('Must use the cached Neon master');});
+  const scopes=[];
+  t.mock.method(intake,'sqlDatabase',()=>async (strings,...values)=>{
+    if(strings.join('').includes('FROM lkh_master_cache'))return [{mapping:{
+      LINE_6:{mesin_part_mapping:{M:{options:['P','__other_option__']}}},
+      LINE_99:{mesin_part_mapping:{M:{options:['Test']}}},
+    }}];
+    scopes.push(values);
+    return rows;
+  });
+  const work=await webReviewWorkspace('2026-01-15','1','LINE_6');
+  assert.deepEqual(scopes,[['LINE_6','LINE_6','2026-01-15','1']]);
+  assert.deepEqual(work.catalog,[{line:'LINE_6',machine:'M',part:'P'}]);
+  assert.deepEqual(work.reports.map(report=>report.state),[
+    'WAITING_LEADER','TF_WEB_READY','TF_WEB_READY','WAITING_PROCESS_END','APPROVED','APPROVED',
+  ]);
+  assert.equal(work.reports[1].input.ok,9);
+  assert.equal(work.reports[1].sheetDelivery,'PENDING');
+  assert.match(work.reports[2].validation,/Google Sheets/);
+  assert.match(work.reports[5].validation,/Jam proses/);
 });
