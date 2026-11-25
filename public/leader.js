@@ -21,9 +21,9 @@ function addOperatorTargetLinks(items) {
   if(!item)return;
   const link=document.createElement('a');
   link.href=operatorWorkUrl(item.line,item.machine,item.part,item.workspaceShift);
-  link.className='tgbutton';
-  link.textContent=item.line==='LINE_99'&&item.machine==='AUTO CHAMPER'?'Pekerjaan / Start–End Champer':'Buka pekerjaan operator';
-  button.parentElement.append(link);
+  link.className='target-link';
+  link.textContent=item.line==='LINE_99'&&item.machine==='AUTO CHAMPER'?'Start–End Champer':'Pekerjaan operator';
+  button.after(link);
  });
 }
 function notify(text,error=false,inDialogs=true){$('notice').textContent=text;$('notice').className=error?'error':'';if(inDialogs)document.querySelectorAll('dialog[open]').forEach(d=>{let e=d.querySelector('.feedback');if(!e){e=document.createElement('p');e.className='feedback';d.prepend(e);}e.textContent=text;});}
@@ -55,9 +55,29 @@ function eligible(r){return !needsCurrentPart(r)&&contextMatches()&&data.reports
 function filteredReports(){const rows=view().reports,s=$('status').value;return rows.filter(r=>!s||(s==='waiting'?['RECEIVED','WAITING_LEADER'].includes(r.state):s==='attention'?!!r.validation||r.state==='HELD':r.state===s));}
 function summaryCards(s){const values=[['Target laporan',s.expected,'item part–mesin'],['Sudah dilaporkan',s.received,'item sudah ada laporan'],['Belum dilaporkan',s.missing,'item belum ada laporan'],['Submission masuk',s.submissions,'laporan berbeda']];$('stats').innerHTML=values.map(v=>'<div><span>'+v[0]+'</span><b>'+v[1]+'</b><small>'+v[2]+'</small></div>').join('');}
 function qtySummary(t){const hours=t.hours?'<small>'+esc(t.hours.toLocaleString('id-ID'))+' jam efektif'+(t.manualQty?' · Qty manual':'')+'</small>':'';if(data?.reportsLoaded===false)return '<div class="qtysummary">'+hours+'<span>Target OK: <strong>'+esc(t.targetQty??'Belum diisi')+' pcs</strong></span><small>Hasil produksi sedang dimuat…</small></div>';return '<div class="qtysummary">'+hours+'<span>Target OK: <strong>'+ (t.targetQty===null?'Belum diisi':esc(t.targetQty.toLocaleString('id-ID'))+' pcs')+'</strong></span><span>OK dilaporkan: <strong>'+esc(t.actualOk.toLocaleString('id-ID'))+' pcs</strong></span><small class="small">'+(t.targetQty===null?'Target lama belum memiliki qty':t.qtyReached?'Qty tercapai'+(t.actualOk>t.targetQty?' · lebih '+esc((t.actualOk-t.targetQty).toLocaleString('id-ID'))+' pcs':''):'Kurang '+esc(t.shortfall.toLocaleString('id-ID'))+' pcs')+'</small></div>'; }
+function targetCard(t){
+ const key=esc(targetDisplayKey(t));
+ const loadingResults=data.reportsLoaded===false;
+ const reportCount=t.reports.length;
+ return `<article class="card targetrow">
+  <div class="target-identity">
+   <strong>${esc(t.part)}</strong>
+   <span class="small">${esc(t.machine)}</span>
+   <span class="small">${esc(t.line.replace('_',' ')+' · '+shiftLabel(t.workspaceShift))}</span>
+  </div>
+  <div class="target-progress">
+   ${qtySummary(t)}
+   ${loadingResults?'':`<span class="badge ${reportCount?'good':'warn'}">${reportCount?reportCount+' laporan terkait':'Belum dilaporkan'}</span>`}
+  </div>
+  <div class="target-actions">
+   <button type="button" class="target-edit" data-target-edit="${key}">Revisi / hapus</button>
+   <div class="target-links"><button type="button" class="target-link" data-target="${key}">Lihat laporan</button></div>
+  </div>
+ </article>`;
+}
 function render(){updateOperatorLinks();const v=view(),s=summarizeView(v);summaryCards(s);if(!contextMatches()||data.reportsLoaded===false){$('stats').querySelectorAll('b').forEach((b,i)=>{if(i>0||!contextMatches())b.textContent='—';});}$('heroDate').textContent=$('date').value;$('heroShift').textContent=shiftLabel($('shift').value);$('reportCount').textContent=v.reports.length?'('+v.reports.length+')':'';
 $('targetStatus').textContent=v.targets.length?v.targets.map(t=>shiftLabel(t.workspaceShift)+' · '+t.line.replace('_',' ')+' · v'+t.version+' · '+t.leader+(t.items.length?'':' · Tidak ada target')).join(' | '):'Target belum diisi untuk pilihan ini. Belum diisi berbeda dengan tidak ada target.';
-$('targetList').innerHTML=!s.items.length?'<div class="empty"><strong>Belum ada item target.</strong><br>Atur daftar part dan mesin yang harus dilaporkan pada shift ini.</div>':s.items.map(t=>'<article class="card targetrow"><div><span class="small">'+esc(t.line.replace('_',' ')+' · '+shiftLabel(t.workspaceShift))+'</span><br><strong>'+esc(t.machine)+'</strong></div><div><span class="small">Part / proses</span><br><strong>'+esc(t.part)+'</strong>'+qtySummary(t)+'</div><div><span class="badge '+(t.reports.length?'good':'warn')+'">'+(data.reportsLoaded===false?'Hasil sedang dimuat…':t.reports.length?'Sudah dilaporkan':'Belum dilaporkan')+'</span><br><small class="small">'+(data.reportsLoaded===false?'—':t.reports.length)+' laporan terkait</small></div><div class="target-actions"><button type="button" class="primary" data-target-edit="'+esc(targetDisplayKey(t))+'">Revisi / hapus</button><button type="button" data-target="'+esc(targetDisplayKey(t))+'">Lihat laporan</button></div></article>').join('');
+$('targetList').innerHTML=s.items.length?s.items.map(targetCard).join(''):'<div class="empty"><strong>Belum ada item target.</strong><br>Atur daftar part dan mesin yang harus dilaporkan pada shift ini.</div>';
 $('targetList').querySelectorAll('[data-target]').forEach(b=>b.onclick=()=>{showTab('reports');const item=s.items.find(t=>targetDisplayKey(t)===b.dataset.target);const changed=$('line').value!==item.line||$('shift').value!==item.workspaceShift;$('line').value=item.line;$('shift').value=item.workspaceShift;selected.clear();$('status').value='';if(changed){load();return;}render();$('reportList').querySelector('[data-report="'+CSS.escape(item.reports[0]?.id||'')+'"]')?.scrollIntoView({block:'center',behavior:'smooth'});});
 $('targetList').querySelectorAll('[data-target-edit]').forEach(button=>{
  button.onclick=()=>openTargets(s.items.find(item=>targetDisplayKey(item)===button.dataset.targetEdit));
@@ -135,13 +155,14 @@ function openTargets(item){
  const shiftSelect=$('targetShift');
  for(const option of shiftSelect.options)option.disabled=!!option.value&&data.shift!=='all'&&option.value!==data.shift;
  shiftSelect.value=item?.workspaceShift||(data.shift==='all'?'':data.shift);
+ $('targetScope').hidden=Boolean(item);
  $('targetDialog').querySelector('.feedback')?.remove();
  setTargetLine();
  restoreTargetDraft();
  $('targetDialog').showModal();
  if(item){
   const row=[...$('draftList').children].find(row=>row.dataset.targetItem===core.key(item));
-  (row?.querySelector('[data-qty]')||$('targetReason')).focus();
+  (row||$('targetTitle')).focus();
  }
 }
 const removedTargetParts=new Map();
@@ -153,7 +174,8 @@ function setTargetLine(){
  draft=target?target.items.map(item=>({...item})):[];
  targetVersion=target?.version||0;
  $('targetTitle').textContent=targetVersion?'Revisi target shift':'Atur target shift';
- $('targetContext').textContent=[data.date,shift&&shiftLabel(shift),line&&line.replace('_',' ')].filter(Boolean).join(' · ');
+ $('targetContext').textContent=$('targetScope').hidden?
+  [data.date,shiftLabel(shift),line.replace('_',' ')].join(' · '):data.date;
  $('targetReason').value='';
  $('targetReason').required=Boolean(targetVersion);
  $('zeroConfirm').checked=!!target&&!target.items.length;
@@ -176,13 +198,14 @@ function renderDraft(){
  draft.forEach((item,index)=>{
   const master=data.catalog.find(m=>core.key(m)===core.key(item));
   const ct=master?.ct||null;
-  const row=document.createElement('div');row.className='draftchip planrow';
+  const row=document.createElement('div');row.className='planrow';
+  row.tabIndex=-1;
   row.dataset.targetItem=core.key(item);
-  row.innerHTML='<span><strong>'+esc(item.part)+'</strong><br>'+esc(item.machine)+'<br><small>'+
+  row.innerHTML='<div class="plan-identity"><strong>'+esc(item.part)+'</strong><small class="small">'+esc(item.machine)+'</small><small class="small">'+
    (ct?'CT '+esc(ct)+' detik/pcs · Master '+esc(master.ctDate):'CT belum tersedia · isi qty manual')+
-   (master?'':' · Pilih ulang part di master terbaru')+'</small></span>'+
-   '<label>Jam efektif<input type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="Mis. 1,5" data-hours></label>'+
-   '<label>Target OK (pcs)<input type="number" min="1" max="999999999" step="1" inputmode="numeric" required data-qty></label>'+
+   (master?'':' · Pilih ulang part di master terbaru')+'</small></div>'+
+   '<div class="plan-fields"><label>Jam efektif<input type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="Mis. 1,5" data-hours></label>'+
+   '<label>Target OK (pcs)<input type="number" min="1" max="999999999" step="1" inputmode="numeric" required data-qty></label></div>'+
    '<button type="button" class="target-remove" data-remove aria-label="Hapus '+esc(item.part)+'">Hapus part</button>'+
    '<div class="calculation"><small data-info></small> <button type="button" data-auto>Gunakan hasil CT</button></div>';
   const hours=row.querySelector('[data-hours]'),qty=row.querySelector('[data-qty]'),auto=row.querySelector('[data-auto]');
@@ -190,7 +213,7 @@ function renderDraft(){
   hours.required=item.hours!=null||item.targetQty==null;
   function refreshInfo(){
    const estimate=core.planQty(item.hours,ct);
-   row.querySelector('[data-info]').textContent=(estimate!==null?'Hasil CT '+estimate.toLocaleString('id-ID')+' pcs':'')+(item.manualQty?' · Qty manual':'');
+   row.querySelector('[data-info]').textContent=[estimate!==null?'Hasil CT '+estimate.toLocaleString('id-ID')+' pcs':'',item.manualQty?'Qty manual':''].filter(Boolean).join(' · ');
    auto.hidden=estimate===null||(!item.manualQty&&item.targetQty===estimate);
   }
   function calculate(){item.manualQty=false;item.plannedCt=ct;item.targetQty=core.planQty(item.hours,ct);qty.value=item.targetQty??'';}
