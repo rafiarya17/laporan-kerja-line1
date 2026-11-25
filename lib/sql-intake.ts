@@ -51,10 +51,10 @@ export async function submitSqlReport(payload: Submission) {
   const master=await intakeMaster(900);
   const errors=validateSubmission(payload,master.mapping,Date.now(),EARLY_PRODUCTION_MINUTES);
   if(errors.length) return {status:400,body:{ok:false,error:errors.join(' '),clearPending:true}};
-  const needsLeader = process.env.VERCEL_ENV === 'production' && requiresProductionReview(payload.line);
+  const needsLeader = process.env.VERCEL_ENV === 'production' && (requiresProductionReview(payload.line) || payload.line === 'LINE_99');
   const [saved]=await sql`INSERT INTO lkh_reports(id,payload,master_version,leader_review,next_attempt_at)
     VALUES(${payload.id},${json}::jsonb,${master.version},
-      CASE WHEN ${needsLeader} THEN '{}'::jsonb END,
+      CASE WHEN ${needsLeader && payload.line === 'LINE_99'} THEN '{"testOnly":true}'::jsonb WHEN ${needsLeader} THEN '{}'::jsonb END,
       CASE WHEN ${needsLeader} THEN 'infinity'::timestamptz ELSE now() END)
     ON CONFLICT(id) DO UPDATE SET id=excluded.id WHERE lkh_reports.payload=excluded.payload
     RETURNING received_at,leader_review IS NOT NULL AND leader_review->>'approvedAt' IS NULL AS awaiting_leader`;

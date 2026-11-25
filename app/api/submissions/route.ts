@@ -19,7 +19,7 @@ export async function POST(request: Request) {
     if (new TextEncoder().encode(raw).length > 24000) return fail("Laporan terlalu panjang.", 413);
     let payload: Submission;
     try { payload = JSON.parse(raw); } catch { return fail("Format laporan tidak valid.", 400); }
-    if (process.env.VERCEL_ENV === 'production' && requiresProductionReview(payload?.line) && !sqlSubmissionEnabled(payload.line)) {
+    if (process.env.VERCEL_ENV === 'production' && (requiresProductionReview(payload?.line) || payload?.line === "LINE_99") && !sqlSubmissionEnabled(payload.line)) {
       return fail("Penerimaan laporan produksi sedang tidak tersedia. Coba lagi dengan ID yang sama.", 503);
     }
     const started=performance.now();

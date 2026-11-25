@@ -1,6 +1,6 @@
 'use strict';
 const $=id=>document.getElementById(id),endpoint='/api/leader',core=window.LeaderCore;
-const names={RECEIVED:'Diterima · proses awal',WAITING_LEADER:'Menunggu leader',HELD:'Ditahan',PUBLISH_QUEUED:'Disetujui · antre terbit',WAITING_TF_SYNC:'Disetujui · sinkron TF',PUBLISHED:'Terbit TF Slip',APPROVED:'Disetujui',WAITING_PROCESS_END:'Disetujui · menunggu jam selesai',TF_WEB_READY:'Siap di TF Slip Web',PRODUCTION_VIEW:'Produksi berjalan · lihat'};
+const names={TEST_APPROVED:'Uji · disetujui',RECEIVED:'Diterima · proses awal',WAITING_LEADER:'Menunggu leader',HELD:'Ditahan',PUBLISH_QUEUED:'Disetujui · antre terbit',WAITING_TF_SYNC:'Disetujui · sinkron TF',PUBLISHED:'Terbit TF Slip',APPROVED:'Disetujui',WAITING_PROCESS_END:'Disetujui · menunggu jam selesai',TF_WEB_READY:'Siap di TF Slip Web',PRODUCTION_VIEW:'Produksi berjalan · lihat'};
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let data=null,tab='targets',selected=new Set(),loading=false,epoch=0,current=null,draft=[],targetVersion=0,operations=[],loadController=null,targetPreparing=false;
 try{operations=JSON.parse(localStorage.getItem('berlindo-leader-requests-v1')||'[]');if(!Array.isArray(operations))operations=[];$('leader').value=window.PortalDraft?.get('leader-name')||localStorage.getItem('berlindo-leader-name')||'';}catch{}
@@ -28,9 +28,10 @@ function addOperatorTargetLinks(items) {
 }
 function notify(text,error=false,inDialogs=true){$('notice').textContent=text;$('notice').className=error?'error':'';if(inDialogs)document.querySelectorAll('dialog[open]').forEach(d=>{let e=d.querySelector('.feedback');if(!e){e=document.createElement('p');e.className='feedback';d.prepend(e);}e.textContent=text;});}
 function actor(){const v=$('leader').value.trim();if(v.length<2)throw Error('Isi nama leader terlebih dahulu.');localStorage.setItem('berlindo-leader-name',v);return v;}
-const messages={WEB_REVIEW_UNAVAILABLE:'Laporan Web App belum tersedia. Coba muat ulang.',INVALID_REVIEW_FILTER:'Periksa tanggal, shift, dan line.',LEADER_NOT_CONFIGURED:'Laporan Google Sheets belum dapat dimuat.',LINE4_INVALID_APPROVAL:'Gunakan Setujui pada laporan web produksi yang menunggu verifikasi.',LINE4_APPROVAL_NOT_FOUND:'Laporan ini tidak ada dalam antrean verifikasi web produksi.',LINE4_ALREADY_DECIDED:'Laporan sudah diproses. Muat ulang untuk melihat status terbaru.',LEADER_NAME_REQUIRED:'Isi nama leader yang valid.',TARGET_QTY_REQUIRED:'Isi target OK (pcs) untuk setiap item. Muat ulang halaman jika kolom qty belum muncul.',TARGET_QTY_INVALID:'Target OK harus bilangan bulat 1–999.999.999 pcs.',DUPLICATE_TARGET_QTY_CONFLICT:'Item yang sama memiliki target qty berbeda. Pilih satu target per mesin–part.',VERSION_CHANGED_REFRESH:'Data berubah di perangkat lain. Muat ulang dan periksa versi terbaru.',MASTER_SELECTION_INVALID:'Pilihan mesin/part sudah tidak sesuai master. Muat ulang master.',BUSY_RETRY_SAME_ID:'Penyimpanan sedang digunakan sebentar. Coba lagi dengan ID yang sama.',LEADER_DISABLED:'Dashboard belum diaktifkan pada penerima.',PILOT_ONLY:'Persetujuan produksi asli belum diaktifkan; pengujian hanya Line 99.',REASON_REQUIRED:'Isi alasan minimal 5 karakter.',REQUEST_ID_CONFLICT:'ID permintaan memiliki isi berbeda. Simpan ID dan minta pemeriksaan admin.',LEADER_UNCONFIRMED_RETRY_SAME_ID:'Konfirmasi belum diterima. Gunakan Coba lagi; ID permintaan tetap sama.'};
+const messages={OPEN_NATIVE_REVISION:'Laporan ini dikelola di Web App. Pilih sumber Laporan Web App untuk merevisinya.',NO_CHANGES:'Ubah setidaknya satu isian untuk menyimpan revisi.',WEB_REVIEW_UNAVAILABLE:'Laporan Web App belum tersedia. Coba muat ulang.',INVALID_REVIEW_FILTER:'Periksa tanggal, shift, dan line.',LEADER_NOT_CONFIGURED:'Laporan Google Sheets belum dapat dimuat.',LINE4_INVALID_APPROVAL:'Gunakan Setujui pada laporan web produksi yang menunggu verifikasi.',LINE4_APPROVAL_NOT_FOUND:'Laporan ini tidak ada dalam antrean verifikasi web produksi.',LINE4_ALREADY_DECIDED:'Laporan sudah diproses. Muat ulang untuk melihat status terbaru.',LEADER_NAME_REQUIRED:'Isi nama leader yang valid.',TARGET_QTY_REQUIRED:'Isi target OK (pcs) untuk setiap item. Muat ulang halaman jika kolom qty belum muncul.',TARGET_QTY_INVALID:'Target OK harus bilangan bulat 1–999.999.999 pcs.',DUPLICATE_TARGET_QTY_CONFLICT:'Item yang sama memiliki target qty berbeda. Pilih satu target per mesin–part.',VERSION_CHANGED_REFRESH:'Data berubah di perangkat lain. Muat ulang dan periksa versi terbaru.',MASTER_SELECTION_INVALID:'Pilihan mesin/part sudah tidak sesuai master. Muat ulang master.',BUSY_RETRY_SAME_ID:'Penyimpanan sedang digunakan sebentar. Coba lagi dengan ID yang sama.',LEADER_DISABLED:'Dashboard belum diaktifkan pada penerima.',PILOT_ONLY:'Persetujuan produksi asli belum diaktifkan; pengujian hanya Line 99.',REASON_REQUIRED:'Isi alasan minimal 5 karakter.',REQUEST_ID_CONFLICT:'ID permintaan memiliki isi berbeda. Simpan ID dan minta pemeriksaan admin.',LEADER_UNCONFIRMED_RETRY_SAME_ID:'Konfirmasi belum diterima. Gunakan Coba lagi; ID permintaan tetap sama.'};
 async function api(body,signal){const r=await andonFetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal,cache:'no-store'},80000);let b;try{b=await r.json();}catch{throw Error('Respons belum dapat dikonfirmasi.');}if(!r.ok||!b.ok){const e=Error(messages[b.error]||b.error||'Koneksi belum berhasil.');e.confirmed=r.status<500&&!['BUSY_RETRY_SAME_ID'].includes(b.error);throw e;}return b;}
-function reportSource(){return $('line').value==='LINE_99'?'legacy':$('reportSource').value;}
+function reportSource(){return $('reportSource').value;}
+if(params.get('source')==='legacy')$('reportSource').value='legacy';
 function contextMatches(){
  const source=tab==='reports'?reportSource():undefined;
  return data&&data.source===source&&data.date===$('date').value&&data.shift===$('shift').value&&(data.reportLine===undefined||!data.reportLine||data.reportLine===$('line').value);
@@ -56,6 +57,7 @@ function needsCurrentPart(r){
  return choices.length>0&&!choices.some(item=>item.part===r.part);
 }
 function eligible(r){return !needsCurrentPart(r)&&contextMatches()&&data.reportsLoaded!==false&&!r.viewOnly&&['WAITING_LEADER','HELD'].includes(r.state)&&!r.validation&&!!r.hash&&!pendingReport(r.id);}
+function canRevise(r){return !!r.revisionVersion&&contextMatches()&&!r.viewOnly&&!pendingReport(r.id);}
 function filteredReports(){
  const status=$('status').value;
  return view().reports.filter(report=>{
@@ -115,30 +117,25 @@ $('targetList').querySelectorAll('[data-target-edit]').forEach(button=>{
  button.onclick=()=>openTargets(s.items.find(item=>targetDisplayKey(item)===button.dataset.targetEdit));
 });
 addOperatorTargetLinks(s.items);renderReports();renderPending();renderTelegram();$('editTargets').disabled=!contextMatches();document.dispatchEvent(new Event('portal:ready'));}
-function renderReports(){const rows=filteredReports();$('reportList').className=reportView==='card'?'reportsgrid':'reportlist';$('reportList').innerHTML=rows.length?rows.map(r=>'<article class="card" data-report="'+esc(r.id)+'"><div class="reporthead">'+(eligible(r)?'<label class="check"><input data-select="'+esc(r.id)+'" type="checkbox" '+(selected.has(r.id)?'checked':'')+'>Pilih</label>':'<span class="badge '+(['PUBLISHED','TF_WEB_READY'].includes(r.state)?'good':r.validation?'warn':'')+'">'+esc(pendingReport(r.id)?pendingLabel(r.id):names[r.state]||r.state)+'</span>')+'<span class="small">'+esc(r.line.replace('_',' ')+' · '+shiftLabel(r.workspaceShift))+'</span></div><div class="reportidentity"><div class="part">'+esc(r.part)+'</div><p class="small">'+esc(r.machine)+'<br>'+esc(r.operator)+'</p></div><div class="reportmeta"><span>OK <strong>'+esc(r.input.ok)+'</strong></span><span>Repair '+esc(r.input.repair)+'</span><span>Reject '+esc(r.input.reject)+'</span></div>'+(r.validation?'<p class="reportwarning badge warn">'+esc(r.validation)+'</p>':'')+'<p class="reportstate small'+(!eligible(r)&&!r.viewOnly?' repeatstate':'')+'">'+esc(r.viewOnly?r.productionState:names[r.state])+'</p><small class="small" style="overflow-wrap:anywhere">'+esc(r.id)+'</small><div class="actions">'+(eligible(r)?'<button class="primary" data-approve="'+esc(r.id)+'">Setujui</button>':'')+(r.line==='LINE_99'&&r.state==='PUBLISHED'&&data.revisionEnabled?'<button data-web-revision="'+esc(r.id)+'">Uji revisi web</button>':'')+'<button data-detail="'+esc(r.id)+'">'+((r.reviewSource==='LINE4_WEB'?!(eligible(r)&&r.reviewFields):r.viewOnly&&!data.revisionEnabled)?'Periksa laporan':'Periksa / revisi')+'</button></div></article>').join(''):'<div class="empty">'+(loading||data?.reportsLoaded===false?'Laporan sedang dimuat…':'Belum ada laporan untuk filter ini.')+'</div>';
+function renderReports(){const rows=filteredReports();$('reportList').className=reportView==='card'?'reportsgrid':'reportlist';$('reportList').innerHTML=rows.length?rows.map(r=>'<article class="card" data-report="'+esc(r.id)+'"><div class="reporthead">'+(eligible(r)?'<label class="check"><input data-select="'+esc(r.id)+'" type="checkbox" '+(selected.has(r.id)?'checked':'')+'>Pilih</label>':'<span class="badge '+(['PUBLISHED','TF_WEB_READY'].includes(r.state)?'good':r.validation?'warn':'')+'">'+esc(pendingReport(r.id)?pendingLabel(r.id):names[r.state]||r.state)+'</span>')+'<span class="small">'+esc(r.line.replace('_',' ')+(r.testOnly?' · Uji':'')+' · '+shiftLabel(r.workspaceShift))+'</span></div><div class="reportidentity"><div class="part">'+esc(r.part)+'</div><p class="small">'+esc(r.machine)+'<br>'+esc(r.operator)+'</p></div><div class="reportmeta"><span>OK <strong>'+esc(r.input.ok)+'</strong></span><span>Repair '+esc(r.input.repair)+'</span><span>Reject '+esc(r.input.reject)+'</span></div>'+(r.validation?'<p class="reportwarning badge warn">'+esc(r.validation)+'</p>':'')+'<p class="reportstate small'+(!eligible(r)&&!r.viewOnly?' repeatstate':'')+'">'+esc(r.viewOnly?r.productionState:names[r.state])+'</p><small class="small" style="overflow-wrap:anywhere">'+esc(r.id)+'</small><div class="actions">'+(eligible(r)?'<button class="primary" data-approve="'+esc(r.id)+'">Setujui</button>':'')+(r.line==='LINE_99'&&r.state==='PUBLISHED'&&data.revisionEnabled?'<button data-web-revision="'+esc(r.id)+'">Uji revisi web</button>':'')+'<button data-detail="'+esc(r.id)+'">'+((r.reviewSource==='LINE4_WEB'?!((eligible(r)||canRevise(r))&&r.reviewFields):r.viewOnly&&!data.revisionEnabled)?'Periksa laporan':'Periksa / revisi')+'</button></div></article>').join(''):'<div class="empty">'+(loading||data?.reportsLoaded===false?'Laporan sedang dimuat…':'Belum ada laporan untuk filter ini.')+'</div>';
 $('reportList').querySelectorAll('[data-web-revision]').forEach(b=>b.onclick=()=>openWebRevision(b.dataset.webRevision));$('reportList').querySelectorAll('[data-approve]').forEach(b=>b.onclick=()=>approveCard(b.dataset.approve));$('reportList').querySelectorAll('[data-select]').forEach(b=>b.onchange=()=>{b.checked?selected.add(b.dataset.select):selected.delete(b.dataset.select);syncSelection();});$('reportList').querySelectorAll('[data-detail]').forEach(b=>b.onclick=()=>openDetail(b.dataset.detail));syncSelection();}
 function syncSelection(){const visible=filteredReports().filter(eligible),n=visible.filter(r=>selected.has(r.id)).length;$('selectAll').checked=!!visible.length&&n===visible.length;$('selectAll').indeterminate=n>0&&n<visible.length;$('selectAll').disabled=!visible.length;$('bulk').textContent=n>20?'Setujui 20 dari '+n:'Setujui terpilih ('+n+')';$('bulk').disabled=!n;$('selectionInfo').textContent='Pilihan berlaku pada hasil filter. Maksimal 20 laporan per pengiriman; laporan bermasalah diperiksa lewat detail.';}
 function renderTelegram(){const buttons=$('telegramButtons');if(!contextMatches()||data.reportsLoaded===false||data.reportLine){$('telegramText').textContent='Buka tab Ringkasan Telegram untuk memuat ringkasan seluruh line pada tanggal dan shift ini.';if(buttons)buttons.innerHTML='';return;}
  if(data.shift==='all'){$('telegramText').textContent='Pilih Shift 1 atau Shift 2 untuk melihat kartu Telegram shift tersebut.';if(buttons)buttons.innerHTML='';return;}
  const card=leaderCardModel(data.date,data.shift,data.targets,data.reports,core.summarize(data.targets,data.reports),location.origin+'/leader');$('telegramText').textContent=card.text;if(buttons)buttons.innerHTML=card.inline_keyboard.map(row=>row.map(b=>'<a class="tgbutton" href="'+esc(b.url)+'">'+esc(b.text)+'</a>').join('')).join('');
 }
-function renderPending(){const rows=operations.filter(op=>op.state!=='done').slice(-20);$('pendingPanel').hidden=!rows.length;$('pendingList').innerHTML=rows.map(op=>'<div class="pendingrow"><strong>'+esc(({target:'Simpan target',submit:'Input uji',decide:'Keputusan leader',decideBatch:'Persetujuan pilihan',reviseProduction:'Revisi laporan'})[op.body.action])+'</strong> · '+esc(op.state==='accepted'?'Permintaan tersimpan; muat ulang untuk status penerapan':op.state==='sending'?'Mengirim…':op.state==='rejected'?'Perlu diperiksa':'Belum terkonfirmasi')+'<br><small>'+esc(op.body.payload.requestId)+'</small>'+(op.error?'<p>'+esc(op.error)+'</p>':'')+(['unknown'].includes(op.state)?'<button data-retry="'+op.id+'">Coba lagi dengan ID yang sama</button>':'')+'</div>').join('');$('pendingList').querySelectorAll('[data-retry]').forEach(b=>b.onclick=()=>sendOperation(operations.find(o=>o.id===b.dataset.retry)));}
+function renderPending(){const rows=operations.filter(op=>op.state!=='done').slice(-20);$('pendingPanel').hidden=!rows.length;$('pendingList').innerHTML=rows.map(op=>'<div class="pendingrow"><strong>'+esc(({target:'Simpan target',submit:'Input uji',decide:'Keputusan leader',decideBatch:'Persetujuan pilihan',reviseProduction:'Revisi laporan',reviseApproved:'Revisi laporan disetujui'})[op.body.action])+'</strong> · '+esc(op.state==='accepted'?'Permintaan tersimpan; muat ulang untuk status penerapan':op.state==='sending'?'Mengirim…':op.state==='rejected'?'Perlu diperiksa':'Belum terkonfirmasi')+'<br><small>'+esc(op.body.payload.requestId)+'</small>'+(op.error?'<p>'+esc(op.error)+'</p>':'')+(['unknown'].includes(op.state)?'<button data-retry="'+op.id+'">Coba lagi dengan ID yang sama</button>':'')+'</div>').join('');$('pendingList').querySelectorAll('[data-retry]').forEach(b=>b.onclick=()=>sendOperation(operations.find(o=>o.id===b.dataset.retry)));}
 function cancelLoad(){epoch++;loadController?.abort();loading=false;$('refresh').disabled=false;$('refresh').textContent='Muat ulang';}
 function reconcileOperations(){for(const op of operations){if(op.state!=='accepted')continue;const cs=operationCommands(op),jobs=data.requests.filter(j=>cs.some(c=>c.requestId===j.requestId));if(jobs.length===cs.length&&jobs.every(j=>j.state==='DONE'))op.state='done';else if(jobs.some(j=>j.state==='ERROR')){op.state='rejected';op.error=jobs.filter(j=>j.state==='ERROR').map(j=>j.error).join('; ');}}saveOperations();}
 async function load(){
  cancelLoad();
  selected.clear();
  const date=$('date').value,shift=$('shift').value,line=tab==='telegram'?'':$('line').value;
- const sourceSelect=$('reportSource');
- const line99=$('line').value==='LINE_99';
- if(line99)sourceSelect.value='legacy';
- else if(sourceSelect.disabled)sourceSelect.value='web';
- sourceSelect.disabled=line99;
  const source=tab==='reports'?reportSource():undefined;
  if(!date)return;
  const e=epoch,c=new AbortController();
  loadController=c;loading=true;$('refresh').disabled=true;$('refresh').textContent='Memuat…';
- notify(source==='web'?'Mengambil laporan Web App…':source==='legacy'?'Mengambil laporan Google Sheets / Line 99…':'Mengambil target dan pilihan mesin–part…');
+ notify(source==='web'?'Mengambil laporan Web App…':source==='legacy'?'Mengambil laporan Google Sheets…':'Mengambil target dan pilihan mesin–part…');
  render();
  try{
   const shifts=shift==='all'?['1','2']:[shift];
@@ -181,14 +178,15 @@ async function load(){
 }
 function approveCard(id){const r=data?.reports.find(r=>r.id===id);if(!r||!eligible(r))return;try{actor();}catch(e){notify(e.message,true);return;}
  if(!confirm('Setujui laporan ini?\n'+data.date+' · '+shiftLabel(r.workspaceShift)+' · '+r.line.replace('_',' ')+'\n'+r.machine+' · '+r.part+'\n'+r.operator+'\nOK '+r.input.ok+' / Repair '+r.input.repair+' / Reject '+r.input.reject))return;
- startOperation('decide',{id:r.id,expectedHash:r.hash,decision:'approve',reason:'Pemeriksaan leader melalui tombol Setujui pada card laporan'});
+ startOperation('decide',{id:r.id,webPilot:r.testOnly===true,expectedHash:r.hash,decision:'approve',reason:'Pemeriksaan leader melalui tombol Setujui pada card laporan'});
 }
 
 async function startOperation(action,payload){try{const equivalent=v=>{const x={...v};delete x.id;delete x.requestId;return JSON.stringify(x);};const existing=operations.find(o=>['unknown','sending'].includes(o.state)&&o.body.action===action&&equivalent(o.body.payload)===equivalent(payload));if(existing){notify('Permintaan yang sama belum terkonfirmasi. Gunakan Coba lagi dengan ID '+existing.id,true);return;}const leader=actor(),requestId=payload.requestId||crypto.randomUUID(),op={id:requestId,state:'unknown',body:{action,leader,payload:{...payload,requestId}}};operations.push(op);saveOperations();await sendOperation(op);}catch(e){notify(e.message,true);}}
-async function sendOperation(op){if(op?.body.action==='reviseProduction'&&document.getElementById('webRevisionDialog')?.open)document.getElementById('webRevisionDialog').close();if(!op||op.state==='sending')return;op.state='sending';saveOperations();if(op.body.action==='decide'&&$('detailDialog').open&&current?.id===op.body.payload.id){$('detailDialog').close();showTab('reports');notify('Keputusan sedang dikirim. Status proses dapat dilihat pada laporan dan daftar permintaan.',false,false);}renderPending();renderReports();cancelLoad();try{const r=await api(op.body);op.state='accepted';op.error='';
+async function sendOperation(op){if(op?.body.action==='reviseProduction'&&document.getElementById('webRevisionDialog')?.open)document.getElementById('webRevisionDialog').close();if(!op||op.state==='sending')return;op.state='sending';saveOperations();if(['decide','reviseApproved'].includes(op.body.action)&&$('detailDialog').open&&current?.id===op.body.payload.id){$('detailDialog').close();showTab('reports');notify('Keputusan sedang dikirim. Status proses dapat dilihat pada laporan dan daftar permintaan.',false,false);}renderPending();renderReports();cancelLoad();try{const r=await api(op.body);op.state='accepted';op.error='';
+ if(r.result?.state==='WEB_REVISED')op.state='done';
  const completedApprovals=(r.results||[r]).filter(x=>x.ok&&x.result?.state==='LINE4_APPROVED').map(x=>x.result.id);
  for(const report of data?.reports||[])if(report.reviewSource==='LINE4_WEB'&&completedApprovals.includes(report.id)){
-  report.state='WAITING_TF_SYNC';
+  report.state=report.testOnly?'TEST_APPROVED':'WAITING_TF_SYNC';
   const edits=op.body.payload.fields;
   if(edits){
    Object.assign(report.reviewFields,edits);
@@ -200,8 +198,8 @@ async function sendOperation(op){if(op?.body.action==='reviseProduction'&&docume
 if(op.body.action==='target'){op.state='done';const p=op.body.payload,k=targetDraftKey(p),saved=window.PortalDraft?.get(k);if(saved&&saved.version===p.expectedVersion&&JSON.stringify(saved.items)===JSON.stringify(p.items)&&saved.reason===p.reason)window.PortalDraft?.remove(k);if(contextMatches()&&data.date===p.date&&(data.shift===p.shift||data.shift==='all')&&(!data.reportLine||data.reportLine===p.line)){data.targets=data.targets.filter(t=>t.line!==p.line||t.workspaceShift!==p.shift);data.targets.push({date:p.date,shift:p.shift,workspaceShift:p.shift,line:p.line,version:r.result.version,items:p.items,leader:op.body.leader,reason:p.reason});}}
 else if(op.body.action==='submit'){showTab('reports');}
 else{operationCommands(op).forEach(c=>{selected.delete(c.id);window.PortalDraft?.remove('leader-revision:'+c.id);});}
-notify(op.error?'Sebagian permintaan perlu diperiksa: '+op.error:'Tersimpan. '+(op.body.action==='target'?'Target shift diperbarui.':'Keputusan/input diterima untuk diproses. Tekan Muat ulang untuk melihat penerapan dan status TF Slip.')+' Pembaruan Telegram berjalan terpisah.'+(op.body.action==='decideBatch'&&selected.size?' Sisa terpilih pada filter ini: '+filteredReports().filter(r=>eligible(r)&&selected.has(r.id)).length+'.':''),!!op.error,false);
-}catch(e){op.state=e.confirmed?'rejected':'unknown';op.error=e.message;notify(e.message+'\nID: '+op.id+'\nPermintaan lain tetap dapat digunakan.',true,false);}finally{saveOperations();render();if(op.state==='accepted'&&tab==='reports'&&reportSource()==='web')load();}}
+notify(op.error?'Sebagian permintaan perlu diperiksa: '+op.error:r.result?.state==='WEB_REVISED'?'Revisi tersimpan di Web App.':'Tersimpan. '+(op.body.action==='target'?'Target shift diperbarui.':'Keputusan/input diterima untuk diproses. Tekan Muat ulang untuk melihat penerapan dan status TF Slip.')+' Pembaruan Telegram berjalan terpisah.'+(op.body.action==='decideBatch'&&selected.size?' Sisa terpilih pada filter ini: '+filteredReports().filter(r=>eligible(r)&&selected.has(r.id)).length+'.':''),!!op.error,false);
+}catch(e){op.state=e.confirmed?'rejected':'unknown';op.error=e.message;notify(e.message+'\nID: '+op.id+'\nPermintaan lain tetap dapat digunakan.',true,false);}finally{saveOperations();render();if((op.state==='accepted'||(op.state==='done'&&op.body.action==='reviseApproved'))&&tab==='reports'&&reportSource()==='web')load();}}
 function showTab(name,reload=true){
  const changedSource=(tab==='reports')!==(name==='reports');
  tab=name;
@@ -297,6 +295,7 @@ function renderDraft(){
  });
 }
 function appendReviewEditor(report){
+ const revising=canRevise(report);
  const form=document.createElement('form');form.className='production-review';
  const heading=document.createElement('h3');heading.textContent='Periksa / revisi';
  const fields=document.createElement('div');fields.className='formgrid';
@@ -311,9 +310,9 @@ function appendReviewEditor(report){
   control.name=key;control.value=value??'';label.append(control);fields.append(label);
  }
  const label=document.createElement('label');label.textContent='Alasan koreksi';const reason=document.createElement('textarea');reason.required=true;reason.minLength=5;reason.maxLength=500;label.append(reason);
- const submit=document.createElement('button');submit.type='submit';submit.className='primary';submit.textContent='Simpan koreksi & setujui';
+ const submit=document.createElement('button');submit.type='submit';submit.className='primary';submit.textContent=revising?'Simpan revisi':'Simpan koreksi & setujui';
  const approve=document.createElement('button');approve.type='button';approve.className='primary';
- approve.textContent='Setujui dan teruskan ke TF Slip';
+ approve.textContent=report.testOnly?'Setujui laporan uji':'Setujui dan teruskan ke TF Slip';
  function changes(){
   return Object.fromEntries(Object.entries(report.reviewFields)
    .map(([key,original])=>[key,form.elements.namedItem(key).value,String(original??'')])
@@ -321,15 +320,19 @@ function appendReviewEditor(report){
  }
  function updateActions(){
   const edited=Object.keys(changes()).length>0;
-  label.hidden=!edited;reason.required=edited;submit.hidden=!edited;approve.hidden=edited;
+  label.hidden=!edited;reason.required=edited;submit.hidden=!edited;approve.hidden=revising||edited;
  }
  approve.onclick=()=>{if(!Object.keys(changes()).length)approveCard(report.id);else updateActions();};
  form.append(heading,fields,label,approve,submit);$('detailBody').append(form);
  form.addEventListener('input',updateActions);form.addEventListener('change',updateActions);updateActions();
  form.onsubmit=e=>{e.preventDefault();const corrections=changes();
-  if(!eligible(report)||!Object.keys(corrections).length)return;
+  if(!(canRevise(report)||eligible(report))||!Object.keys(corrections).length)return;
   if(reason.value.trim().length<5){notify('Isi alasan koreksi minimal 5 karakter.',true);reason.focus();return;}
-  if(confirm('Setujui dan teruskan hasil koreksi ini ke TF Slip?'))startOperation('decide',{id:report.id,expectedHash:report.hash,decision:'approve',fields:corrections,reason:reason.value.trim()});
+  if(revising){
+   if(confirm('Simpan revisi pada laporan yang sudah disetujui ini?'))startOperation('reviseApproved',{id:report.id,version:report.revisionVersion,fields:corrections,reason:reason.value.trim()});
+   return;
+  }
+  if(confirm(report.testOnly?'Simpan koreksi dan setujui laporan uji?':'Setujui dan teruskan hasil koreksi ini ke TF Slip?'))startOperation('decide',{id:report.id,webPilot:report.testOnly===true,expectedHash:report.hash,decision:'approve',fields:corrections,reason:reason.value.trim()});
  };
 }
 function openDetail(id){const report=data.reports.find(r=>r.id===id);if(!report)return;
@@ -354,7 +357,15 @@ function openDetail(id){const report=data.reports.find(r=>r.id===id);if(!report)
    }catch(e){notify(e.message,true);save.disabled=false;}};
    $('detailBody').append(label,save);
   }
-  if(eligible(report)&&report.reviewFields)appendReviewEditor(report);
+  if(report.lastRevision){
+   const note=document.createElement('p');note.className='small';
+   const revision=report.lastRevision;
+   note.textContent='Revisi terakhir oleh '+revision.actor+' · '+new Date(revision.at).toLocaleString('id-ID',{timeZone:'Asia/Jakarta'})+' WIB · '+revision.reason;
+   $('detailBody').append(note);
+  }
+  const syncLabel={PENDING:'Revisi menunggu sinkronisasi Google Sheets',APPLIED:'Revisi tersinkron ke Google Sheets',REVIEW:'Sinkronisasi revisi perlu diperiksa admin'};
+  if(syncLabel[report.mirrorState]){const note=document.createElement('p');note.className='small';note.textContent=syncLabel[report.mirrorState];$('detailBody').append(note);}
+  if((eligible(report)||canRevise(report))&&report.reviewFields)appendReviewEditor(report);
   pilotApprove.hidden=!eligible(report)||!!report.reviewFields;pilotApprove.onclick=()=>approveCard(id);$('detailDialog').showModal();return;
  }
 if(report?.viewOnly&&data.revisionEnabled){openWebRevision(id);return;}current=data.reports.find(r=>r.id===id);$('detailBody').innerHTML='<p class="part">'+esc(current.part)+'</p><p>'+esc(current.machine)+' · '+esc(current.line)+'</p><p>'+esc(current.operator)+'</p><p class="badge">'+esc(names[current.state])+'</p>'+(current.validation?'<p class="badge warn">'+esc(current.validation)+'</p>':'')+'<p class="small">'+esc(current.id)+'</p>'+(current.note?'<p class="small">'+esc(current.note)+'</p>':'');$('reason').value='';const x=current.input,actionable=!current.viewOnly&&!!current.hash&&!pendingReport(current.id)&&['WAITING_LEADER','HELD','PUBLISHED'].includes(current.state);$('revisionForm').hidden=!actionable;$('approve').hidden=!eligible(current);$('hold').hidden=current.state==='PUBLISHED';$('revisionFields').innerHTML=actionable?'<label>Tanggal produksi<input name="date" type="date" value="'+esc(x.date)+'" required></label><label>Shift<select name="shift"><option value="1">1</option><option value="2">2</option></select></label><label class="full">Mesin & part<select name="catalog">'+data.catalog.filter(m=>m.line==='LINE_99').map((m,i)=>'<option value="'+i+'">'+esc(m.machine+' · '+m.part)+'</option>').join('')+'</select></label>'+['start','end','ok','repair','reject'].map(k=>'<label>'+({start:'Jam mulai',end:'Jam selesai',ok:'OK',repair:'Repair',reject:'Reject'})[k]+'<input name="'+k+'" type="'+(['start','end'].includes(k)?'time':'number')+'" min="0" value="'+esc(x[k])+'" required></label>').join(''):'';if(actionable){$('revisionFields').querySelector('[name=shift]').value=x.shift;$('revisionFields').querySelector('[name=catalog]').value=String(data.catalog.filter(m=>m.line==='LINE_99').findIndex(m=>m.machineId===x.machineId&&m.part===x.part));}restoreRevisionDraft();$('detailDialog').showModal();}
@@ -432,7 +443,7 @@ viewButtons.forEach(button=>button.onclick=()=>{
  updateViewButtons();
  renderReports();
 });
-$('selectAll').onchange=()=>{filteredReports().filter(eligible).forEach(r=>$('selectAll').checked?selected.add(r.id):selected.delete(r.id));renderReports();};$('bulk').onclick=()=>{const rows=filteredReports().filter(r=>eligible(r)&&selected.has(r.id)).slice(0,20);if(!rows.length)return;const remaining=filteredReports().filter(r=>eligible(r)&&selected.has(r.id)).length-rows.length;if(!confirm('Setujui '+rows.length+' laporan terpilih? '+(remaining?remaining+' laporan lainnya tetap terpilih. ':'')+'Laporan yang disetujui akan diproses ke TF Slip.'))return;startOperation('decideBatch',{commands:rows.map(r=>({id:r.id,requestId:crypto.randomUUID(),expectedHash:r.hash,decision:'approve',reason:'Pemeriksaan massal leader melalui dashboard web'}))});};
+$('selectAll').onchange=()=>{filteredReports().filter(eligible).forEach(r=>$('selectAll').checked?selected.add(r.id):selected.delete(r.id));renderReports();};$('bulk').onclick=()=>{const rows=filteredReports().filter(r=>eligible(r)&&selected.has(r.id)).slice(0,20);if(!rows.length)return;const remaining=filteredReports().filter(r=>eligible(r)&&selected.has(r.id)).length-rows.length;if(!confirm('Setujui '+rows.length+' laporan terpilih? '+(remaining?remaining+' laporan lainnya tetap terpilih. ':'')+'Laporan produksi diteruskan ke TF Slip. Laporan uji tetap terpisah.'))return;startOperation('decideBatch',{commands:rows.map(r=>({id:r.id,webPilot:r.testOnly===true,requestId:crypto.randomUUID(),expectedHash:r.hash,decision:'approve',reason:'Pemeriksaan massal leader melalui dashboard web'}))});};
 $('editTargets').onclick=()=>openTargets();
 $('clearTargetItems').onclick=()=>{
  for(const item of draft)removedTargetParts.set(core.key(item),item);

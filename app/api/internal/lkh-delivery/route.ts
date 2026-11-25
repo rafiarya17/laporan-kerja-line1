@@ -1,3 +1,4 @@
+import { drainRevisionDelivery } from '@/lib/revision-delivery';
 import { timingSafeEqual } from 'node:crypto';
 import { sqlDatabase } from '@/lib/sql-intake';
 import { drainSqlDelivery } from '@/lib/sql-delivery';
@@ -13,7 +14,7 @@ function allowed(request:Request) {
 export async function POST(request:Request) {
   if(!allowed(request)) return Response.json({ok:false},{status:401});
   if(!process.env.DATABASE_URL) return Response.json({ok:false,code:'SQL_INTAKE_DISABLED'},{status:503});
-  try{return Response.json({ok:true,...await drainSqlDelivery(65000)},{headers:{'Cache-Control':'no-store'}});}
+  try{const [delivery]=await Promise.all([drainSqlDelivery(65000),drainRevisionDelivery()]);return Response.json({ok:true,...delivery},{headers:{'Cache-Control':'no-store'}});}
   catch {return Response.json({ok:false,code:'DELIVERY_RETRY_REQUIRED'},{status:503});}
 }
 export async function GET(request:Request) {

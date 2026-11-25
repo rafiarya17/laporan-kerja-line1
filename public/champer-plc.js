@@ -30,7 +30,7 @@ function renderHistory(){
  const jobs=snapshot?.jobs||[];
  ChamperWork.table(el('history-table'),jobs,{date:el('history-date').value,shift:el('history-shift').value,status:el('history-status').value,query:el('history-search').value},(td,j)=>{
   if(closed(j)){const b=document.createElement('button');b.textContent='Pilih untuk sesi baru';b.disabled=!!current||busy;b.onclick=()=>{location.href='/pekerjaan.html?'+new URLSearchParams({date:j.target.date,shift:j.target.shift,line:j.target.line,machine:j.target.machine,part:j.target.part});};td.append(b);}
-  if(j.report?.state==='QUEUED'){const a=document.createElement('a');a.textContent='Pemeriksaan leader';a.href='/leader?'+new URLSearchParams({date:j.target.date,shift:j.target.shift,line:'LINE_99'});td.append(a);}
+  if(j.report?.state==='QUEUED'){const a=document.createElement('a');a.textContent='Pemeriksaan leader';a.href='/leader?'+new URLSearchParams({tab:'reports',date:j.target.date,shift:j.target.shift,line:'LINE_99',source:j.report?.receipt?.state==='SQL_SAVED'?'web':'legacy'});td.append(a);}
  });
  el('history').replaceChildren();for(const j of jobs){if(reportEnabled&&j.state==='COMPLETED_PILOT'&&j.report?.state!=='QUEUED')reportControls(j);}
 }
@@ -38,8 +38,8 @@ function reportControls(j){
  const box=document.createElement('div');box.className='panel';
  const title=document.createElement('p');title.textContent='Laporan Line 99 Uji · LKH99-'+j.id;box.append(title);
  if(j.report?.state==='QUEUED'){
-  const status=document.createElement('p');status.textContent='Diterima untuk pemeriksaan leader. Persetujuan, revisi dan TF Slip mengikuti alur Line 99 yang sudah ada.';box.append(status);
-  const link=document.createElement('a');link.href='/leader?'+new URLSearchParams({date:j.target.date,shift:j.target.shift,line:'LINE_99'});link.textContent='Buka pemeriksaan leader';box.append(link);
+  const status=document.createElement('p');status.textContent='Diterima untuk pemeriksaan leader. Lihat status pada laporan uji Line 99.';box.append(status);
+  const link=document.createElement('a');link.href='/leader?'+new URLSearchParams({tab:'reports',date:j.target.date,shift:j.target.shift,line:'LINE_99',source:j.report?.receipt?.state==='SQL_SAVED'?'web':'legacy'});link.textContent='Buka pemeriksaan leader';box.append(link);
  }else if(!j.workTime&&!j.report){
   timingEditor(box,j);
  }else{

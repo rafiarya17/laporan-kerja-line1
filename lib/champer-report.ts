@@ -2,7 +2,7 @@ import {State,fail,uuid} from './champer-core';
 import {initialForm,Submission,Receipt} from './lkh';
 
 export type ReportInput={jobId:string;revision:number;lembur:string;jamMulaiKendala:string;jamSelesaiKendala:string};
-export type PilotReport={payload:Submission;state:'PENDING'|'QUEUED';receipt?:Receipt};
+export type PilotReport={payload:Submission;state:'PENDING'|'QUEUED';backend?:'web';receipt?:Receipt};
 const local=(iso:string)=>new Date(Date.parse(iso)+7*3600000).toISOString();
 // Build identity and quantities from the frozen cloud session, never from a tablet-supplied report.
 export function prepareReport(s:State,input:ReportInput):Submission {
@@ -23,15 +23,15 @@ export function prepareReport(s:State,input:ReportInput):Submission {
  lembur:j.workTime.overtime,kendala:q.issue,kendala4M:q.classification,permasalahan:q.problem,tindakan:q.action,pic:q.pic,
  jamMulaiKendala:q.issue==='Ada'?input.jamMulaiKendala:'',jamSelesaiKendala:q.issue==='Ada'?input.jamSelesaiKendala:''}};
 }
-export function reserveReport(s:State,input:ReportInput,payload:Submission){
+export function reserveReport(s:State,input:ReportInput,payload:Submission,backend?:'web'){
  const current=prepareReport(s,input),j=s.jobs.find(j=>j.id===input.jobId)!;
  if(JSON.stringify(current)!==JSON.stringify(payload))fail('REPORT_CHANGED');
- if(!j.report){j.report={payload:structuredClone(payload),state:'PENDING'};j.revision++;}
+ if(!j.report){j.report={payload:structuredClone(payload),state:'PENDING',backend};j.revision++;}
  return j.report;
 }
 export function confirmReport(s:State,jobId:string,receipt:Receipt){
  const j=s.jobs.find(j=>j.id===jobId);
- if(!j?.report||receipt.id!==j.report.payload.id||receipt.state!=='QUEUED'||receipt.mode!=='production'||!Number.isFinite(Date.parse(receipt.receivedAt)))fail('INVALID_REPORT_RECEIPT');
+ if(!j?.report||receipt.id!==j.report.payload.id||receipt.state!==(j.report.backend==='web'?'SQL_SAVED':'QUEUED')||receipt.mode!=='production'||!Number.isFinite(Date.parse(receipt.receivedAt)))fail('INVALID_REPORT_RECEIPT');
  if(j.report.state!=='QUEUED'){j.report.state='QUEUED';j.report.receipt=receipt;j.revision++;}
  return j.report;
 }

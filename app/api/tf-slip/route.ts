@@ -39,7 +39,7 @@ export async function POST(request: Request) {
     const reports = await sql`SELECT id,payload->>'line' AS line,
       (payload->'form') || COALESCE(NULLIF(leader_review->'corrected','null'::jsonb),'{}'::jsonb) AS form,
       leader_review->>'approvedAt' AS approved, leader_review->>'deliveryPart' AS part,
-      (NOT (payload->'form' @> COALESCE(NULLIF(leader_review->'corrected','null'::jsonb),'{}'::jsonb))
+      (leader_review->>'revisionId' IS NOT NULL OR NOT (payload->'form' @> COALESCE(NULLIF(leader_review->'corrected','null'::jsonb),'{}'::jsonb))
         OR COALESCE(NULLIF(leader_review->>'deliveryPart',''),payload->'form'->>'part')
           IS DISTINCT FROM payload->'form'->>'part') AS revised
       FROM lkh_reports WHERE leader_review IS NOT NULL AND payload->>'line' ~ '^LINE_[1-8]$'

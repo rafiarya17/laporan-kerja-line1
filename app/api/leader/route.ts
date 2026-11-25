@@ -1,7 +1,9 @@
+import {reviseApproved} from '@/lib/web-report-revision';
+import {drainRevisionDelivery} from '@/lib/revision-delivery';
 import {enrichPlanning,savePlanning} from '@/lib/leader-planning';
 import {after} from 'next/server';
 import {remapReviewPart,approveLine4,isLine4Decision,line4ReviewSnapshot,webReviewWorkspace} from '@/lib/line4-review';
-import {productionReviewLines,requiresProductionReview,sqlSubmissionEnabled} from '@/lib/sql-intake';
+import {productionReviewLines,requiresProductionReview,sqlDatabase,sqlSubmissionEnabled} from '@/lib/sql-intake';
 import {drainSqlDelivery} from '@/lib/sql-delivery';
 import {callReceiver, receiverMode, receiverReady} from '@/lib/receiver';
 import {portalPreview,previewWorkspace,previewBlocked,previewHeaders} from '@/lib/portal-preview';
@@ -20,14 +22,22 @@ function scheduleDelivery() {
 function validWebReviewScope({date,shift,line}:{date:unknown;shift:unknown;line:unknown}) {
  if(typeof date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(date)||(shift!=='1'&&shift!=='2'))return false;
  const time=Date.parse(date+'T00:00:00Z');
- return Number.isFinite(time)&&new Date(time).toISOString().slice(0,10)===date&&(line===''||requiresProductionReview(line));
+ return Number.isFinite(time)&&new Date(time).toISOString().slice(0,10)===date&&(line===''||line==='LINE_99'||requiresProductionReview(line));
 }
 export async function POST(r:Request){
  if(portalPreview()){
   try{
    const b=await r.json();if(b.action!=='snapshot')return previewBlocked();
    const sample=previewWorkspace(String(b.date||''),String(b.shift||'1'),String(b.line||''));
-   if(b.phase==='web-reports')sample.data.reports=sample.data.reports.filter(report=>requiresProductionReview(report.line));
+   if(b.phase==='web-reports'){
+    const reports=sample.data.reports.filter(report=>!b.line||report.line===b.line).map(report=>({
+     ...report,reviewSource:'LINE4_WEB',viewOnly:false,hash:'preview',revisionVersion:'preview-version',
+     testOnly:report.line==='LINE_99',state:report.line==='LINE_99'?'TEST_APPROVED':'TF_WEB_READY',
+     reviewFields:{qtyOk:String(report.input.ok),qtyRepair:String(report.input.repair),qtyReject:String(report.input.reject),
+      jamMulaiProses:report.input.start,jamSelesaiProses:report.input.end,lembur:'No'},
+    }));
+    return Response.json({...sample,data:{...sample.data,reports}},{headers:previewHeaders});
+   }
    if(b.phase==='legacy-reports')sample.data.reports=sample.data.reports.filter(report=>report.line==='LINE_99');
    return Response.json(sample,{headers:previewHeaders});
   }
@@ -39,7 +49,7 @@ export async function POST(r:Request){
  if(Number(r.headers.get('content-length')||0)>26000)return reply({ok:false,error:'REQUEST_TOO_LARGE'},413);
  const text=await r.text();if(Buffer.byteLength(text)>26000)return reply({ok:false,error:'REQUEST_TOO_LARGE'},413);
  let body;try{body=JSON.parse(text);}catch{return reply({ok:false,error:'INVALID_JSON'},400);}
- if(!['snapshot','target','submit','decide','decideBatch','revisionDetail','reviseProduction','remapReviewPart'].includes(body?.action))return reply({ok:false,error:'INVALID_ACTION'},400);
+ if(!['snapshot','target','submit','decide','decideBatch','revisionDetail','reviseProduction','reviseApproved','remapReviewPart'].includes(body?.action))return reply({ok:false,error:'INVALID_ACTION'},400);
  const pilotEnabled=process.env.VERCEL_ENV==='production' && sqlSubmissionEnabled('LINE_4');
  const receiverConfigured=receiverReady()&&receiverMode()==='production';
  const notConfigured=()=>reply({ok:false,error:'LEADER_NOT_CONFIGURED'},503);
@@ -51,6 +61,12 @@ export async function POST(r:Request){
   const data=await webReviewWorkspace(scope.date,scope.shift,scope.line);
   h.set('Server-Timing','neon;dur='+(performance.now()-start).toFixed(1));
   return reply({ok:true,data});
+ }
+ if(body.action==='reviseApproved'){
+  if(!pilotEnabled)return notConfigured();
+  const result=await reviseApproved(body.payload,body.leader);
+  if(result.ok)after(drainRevisionDelivery);
+  return reply(result,result.ok?200:409);
  }
  if(body.action==='remapReviewPart'){
   const cmd=body.payload;
@@ -77,13 +93,17 @@ export async function POST(r:Request){
   if(!workspace?.ok||!Array.isArray(workspace.results)) return reply({ok:false,error:'LEADER_UNCONFIRMED_RETRY_SAME_ID'},503);
   return reply({ok:true,results:[...outcomes,...workspace.results]});
  }
+ if(pilotEnabled && ['revisionDetail','reviseProduction'].includes(body.action) && typeof body.payload?.id==='string'){
+  const [native]=await sqlDatabase()`SELECT id FROM lkh_reports WHERE id=${body.payload.id} AND leader_review IS NOT NULL`;
+  if(native)return reply({ok:false,error:'OPEN_NATIVE_REVISION'},409);
+ }
  if(!receiverConfigured)return notConfigured();
  if(body.action==='snapshot'&&body.phase==='legacy-reports'){
   const {workspace}=await callReceiver('leader',{...body,phase:'reports'},65000);
   if(typeof workspace?.ok!=='boolean')return reply({ok:false,error:'LEADER_UNCONFIRMED'},503);
   return reply(workspace,workspace.ok?200:409);
  }
- const isPilotSnapshot=pilotEnabled&&body.action==='snapshot'&&(!body.line||requiresProductionReview(body.line))&&body.phase!=='targets';
+ const isPilotSnapshot=pilotEnabled&&body.action==='snapshot'&&(!body.line||body.line==='LINE_99'||requiresProductionReview(body.line))&&body.phase!=='targets';
  const receiverBody=body.action==='target' && Array.isArray(body.payload?.items)
   ? {...body,payload:{...body.payload,items:body.payload.items.map((item:{line:string;machine:string;part:string;targetQty:number})=>({
      line:item.line,machine:item.machine,part:item.part,targetQty:item.targetQty
@@ -95,7 +115,7 @@ export async function POST(r:Request){
  ]);
  const workspace=result.workspace;
  if(typeof workspace?.ok!=='boolean')return reply({ok:false,error:'LEADER_UNCONFIRMED'},503);
- if(workspace.ok && pilotEnabled && body.action==='snapshot' && body.phase==='targets' && (!body.line || requiresProductionReview(body.line))) workspace.data.reportsLoaded=false;
+ if(workspace.ok && pilotEnabled && body.action==='snapshot' && body.phase==='targets' && (!body.line || body.line==='LINE_99' || requiresProductionReview(body.line))) workspace.data.reportsLoaded=false;
  if(workspace.ok&&pilot){
   const reports=workspace.data.reports;
   const existing=new Set(reports.map((report:{id:string})=>report.id));

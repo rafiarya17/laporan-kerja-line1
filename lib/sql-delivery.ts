@@ -29,11 +29,12 @@ export async function drainSqlDelivery(budgetMs=55000, call: ReceiverCall=callRe
     while(Date.now()-start<budgetMs-25000) {
       const [owned]=await sql`UPDATE lkh_delivery_worker SET lease_until=now()+interval '100 seconds' WHERE id=true AND owner=${owner}::uuid AND lease_until>now() RETURNING id`;
       if(!owned) break;
-      const [job]=await sql`SELECT id,payload,leader_review FROM lkh_reports WHERE delivery_state='PENDING' AND (leader_review IS NULL OR leader_review->>'approvedAt' IS NOT NULL) AND next_attempt_at<=now() ORDER BY next_attempt_at,received_at LIMIT 1`;
+      const [job]=await sql`SELECT id,payload,leader_review FROM lkh_reports WHERE delivery_state='PENDING' AND leader_review->>'testOnly' IS DISTINCT FROM 'true' AND (leader_review IS NULL OR leader_review->>'approvedAt' IS NOT NULL) AND next_attempt_at<=now() ORDER BY next_attempt_at,received_at LIMIT 1`;
       if(!job) break;
       const original = job.payload as Submission;
-      const payload = job.leader_review?.deliveryPart || job.leader_review?.corrected
-        ? {...original, form: {...original.form,...job.leader_review.corrected, part: job.leader_review.deliveryPart || original.form.part}}
+      const firstCorrection = job.leader_review?.deliveryCorrection ?? job.leader_review?.corrected;
+      const payload = job.leader_review?.deliveryPart || firstCorrection
+        ? {...original, form: {...original.form,...firstCorrection, part: job.leader_review.deliveryPart || original.form.part}}
         : original;
       const interval = payload.form.jenisAktivitas === 'DANDORI' ? null : processInterval(payload.form);
       // Early submissions are saved for review, then forwarded when the process has ended.

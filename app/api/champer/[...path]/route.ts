@@ -1,5 +1,5 @@
 import {ChamperError,fail,operatorAction,poll,result,view,Target,Evidence,validateTarget,uuid} from '@/lib/champer-core';
-import {sqlDatabase} from '@/lib/sql-intake';
+import {sqlDatabase,sqlSubmissionEnabled,submitSqlReport,intakeMaster} from '@/lib/sql-intake';
 import {redisStore} from '@/lib/champer-store';
 import {telemetryStore,validateTelemetry} from '@/lib/champer-telemetry';
 import {shiftWork,liveBoard} from '@/lib/champer-live-work';
@@ -84,15 +84,18 @@ async function handle(r:Request){
    const prepared=await store().transaction(s=>({payload:prepareReport(s,input),existing:s.jobs.find(j=>j.id===input.jobId)?.report}));
    if(prepared.existing?.state==='QUEUED')return Response.json({ok:true,report:prepared.existing},{headers});
    if(!prepared.existing){
-    const master=await callReceiver('master',{});
+    if(!sqlSubmissionEnabled('LINE_99'))fail('WEB_REVIEW_UNAVAILABLE',503);
+    const master=await intakeMaster(900);
     const errors=validateSubmission(prepared.payload,master.mapping);
     if(errors.length)return Response.json({ok:false,error:errors.join(' ')},{status:400,headers});
    }
-   const reserved=await store().transaction(s=>reserveReport(s,input,prepared.payload));
+   const reserved=await store().transaction(s=>reserveReport(s,input,prepared.payload,'web'));
    if(reserved.state==='QUEUED')return Response.json({ok:true,report:reserved},{headers});
-   const sent=await submitReport(reserved.payload,true,'production',callReceiver);
+   const sent=reserved.backend==='web' ? await submitSqlReport(reserved.payload) : await submitReport(reserved.payload,true,'production',callReceiver);
    if(!sent.body.ok)return Response.json(sent.body,{status:sent.status,headers});
-   const report=await store().transaction(s=>confirmReport(s,input.jobId,sent.body.receipt as Receipt));
+   const receipt='receipt' in sent.body ? sent.body.receipt as Receipt : undefined;
+   if(!receipt)fail('INVALID_REPORT_RECEIPT');
+   const report=await store().transaction(s=>confirmReport(s,input.jobId,receipt!));
    return Response.json({ok:true,report},{headers});
   }
   if(path==='pair'){
