@@ -5,6 +5,7 @@ const table = document.querySelector('table');
 const columnGroup = table.querySelector('colgroup');
 const params = new URLSearchParams(location.search);
 const filters = ['date', 'to', 'shift', 'line'];
+const alphabetical = new Intl.Collator('id-ID', { sensitivity: 'base', numeric: true });
 const number = new Intl.NumberFormat('id-ID', { maximumFractionDigits: 12 });
 const day = new Intl.DateTimeFormat('id-ID', { timeZone: 'UTC', day: '2-digit', month: 'short', year: 'numeric' });
 const timestamp = new Intl.DateTimeFormat('id-ID', {
@@ -138,6 +139,51 @@ try {
 } catch { /* Browser storage is optional. */ }
 let rows = null;
 let current;
+let sort = null;
+
+const shiftOrder = { '1': 1, '2': 2, '1 + 2': 3 };
+const sortValues = {
+  date: row => Date.parse(row.date),
+  line: row => Number(row.line.split('_')[1]),
+  shift: row => shiftOrder[row.shift],
+  machine: row => row.machine,
+  part: row => row.part,
+  revised: row => row.revised == null ? null : Number(row.revised),
+  approved: row => Date.parse(row.approved)
+};
+for (const [key] of quantities) {
+  sortValues[key] = row => Number(row[key]);
+  for (const shift of ['1', '2']) {
+    sortValues[key + shift] = row => Number(row.byShift[shift]?.[key] ?? 0);
+  }
+}
+const ascendingFirst = new Set(['line', 'shift', 'machine', 'part']);
+
+function compareSortValues(first, second, direction) {
+  const valid = value => typeof value === 'number' ? Number.isFinite(value) : Boolean(value);
+  if (!valid(first) || !valid(second)) return Number(valid(second)) - Number(valid(first));
+  const difference = typeof first === 'number' ? first - second : alphabetical.compare(first, second);
+  return direction === 'ascending' ? difference : -difference;
+}
+
+function addSortButton(th, title, key, activeSort) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'sort-column';
+  button.textContent = title;
+  button.dataset.sortKey = key;
+  const next = activeSort?.key === key
+    ? (activeSort.direction === 'ascending' ? 'descending' : 'ascending')
+    : (ascendingFirst.has(key) ? 'ascending' : 'descending');
+  button.title = 'Urutkan ' + title + (next === 'ascending' ? ' naik' : ' turun');
+  button.onclick = () => {
+    sort = { key, direction: next };
+    renderTable();
+    table.querySelector('[data-sort-key="' + key + '"]')?.focus({ preventScroll: true });
+  };
+  if (activeSort?.key === key) th.setAttribute('aria-sort', activeSort.direction);
+  th.append(button);
+}
 
 function renderTable() {
   const terms = el('search').value.trim().toLowerCase().split(/\s+/).filter(Boolean);
@@ -153,6 +199,8 @@ function renderTable() {
   el('print').disabled = !matches.length;
   const allShifts = showingAllShifts();
   const visible = (allShifts ? allColumns : columns).filter(([key]) => selected.includes(key));
+  const activeSort = visible.some(([key]) => key === sort?.key) ? sort : null;
+  table.tFoot.rows[0].cells[0].colSpan = visible.length;
   const heading = table.tHead.rows[0];
   heading.replaceChildren();
   columnGroup.replaceChildren();
@@ -163,13 +211,17 @@ function renderTable() {
     const th = document.createElement('th');
     th.scope = 'col';
     const title = allShifts && totalLabel ? totalLabel : label;
-    th.textContent = title;
+    addSortButton(th, title, key, activeSort);
     addColumnResizer(th, col, key, title);
     heading.append(th);
   }
   updateTableWidth();
   const body = document.createElement('tbody');
   const result = allShifts ? summarizeShifts(matches) : matches;
+  if (activeSort) {
+    const getValue = sortValues[activeSort.key];
+    result.sort((a, b) => compareSortValues(getValue(a), getValue(b), activeSort.direction));
+  }
   for (const row of result) {
     const tr = body.insertRow();
     for (const [key, , display] of visible) {
