@@ -41,7 +41,7 @@ test('a leader correction releases only the corrected report, with safe retries'
 
 test('Web App reports and TF Web readiness come from Neon independently of Sheets delivery',async t=>{
   const form={...initialForm,tanggal:'2026-01-15',shift:'1',operator:['A'],mesin:'M',part:'P',
-    jamMulaiProses:'08:00',jamSelesaiProses:'09:00',qtyOk:'10'};
+    jamMulaiProses:'08:00',jamSelesaiProses:'09:00',qtyOk:'10',qtyRepair:'0',qtyReject:'0'};
   const received=(id,review,delivery_state,fields={})=>({id,review,delivery_state,hash:'test',payload:{line:'LINE_6',form:{...form,...fields}}});
   const approved={approvedAt:'2026-01-15T02:00:00Z',requestId:'request'};
   const rows=[
@@ -55,6 +55,7 @@ test('Web App reports and TF Web readiness come from Neon independently of Sheet
   t.mock.method(intake,'intakeMaster',()=>{throw Error('Must use the cached Neon master');});
   const scopes=[];
   t.mock.method(intake,'sqlDatabase',()=>async (strings,...values)=>{
+    if(strings.join('').includes('FROM leader_cycle_catalog'))return [{day:'2026-01-15',rates:{'["LINE_6","M","P"]':600},part_specs:{}}];
     if(strings.join('').includes('FROM lkh_master_cache'))return [{mapping:{
       LINE_6:{mesin_part_mapping:{M:{options:['P','__other_option__']}}},
       LINE_99:{mesin_part_mapping:{M:{options:['Test']}}},
@@ -68,6 +69,8 @@ test('Web App reports and TF Web readiness come from Neon independently of Sheet
   assert.deepEqual(work.reports.map(report=>report.state),[
     'WAITING_LEADER','TF_WEB_READY','TF_WEB_READY','WAITING_PROCESS_END','APPROVED','APPROVED',
   ]);
+  assert.equal(work.reports[0].ctCheck.status,'high');
+  assert.equal(work.reports[1].ctCheck.status,'normal');
   assert.equal(work.reports[1].input.ok,9);
   assert.equal(work.reports[1].sheetDelivery,'PENDING');
   assert.match(work.reports[2].validation,/Google Sheets/);

@@ -63,7 +63,7 @@ function filteredReports(){
  const status=$('status').value;
  return view().reports.filter(report=>{
   if(status==='waiting')return ['RECEIVED','WAITING_LEADER'].includes(report.state);
-  if(status==='attention')return !!report.validation||report.state==='HELD';
+  if(status==='attention')return !!report.validation||ctAttention(report)||report.state==='HELD';
   if(status==='PUBLISHED')return ['PUBLISHED','TF_WEB_READY'].includes(report.state);
   return !status||report.state===status;
  });
@@ -119,7 +119,18 @@ $('targetList').querySelectorAll('[data-target-edit]').forEach(button=>{
  button.onclick=()=>openTargets(s.items.find(item=>targetDisplayKey(item)===button.dataset.targetEdit));
 });
 addOperatorTargetLinks(s.items);renderReports();renderPending();renderTelegram();$('editTargets').disabled=!contextMatches();document.dispatchEvent(new Event('portal:ready'));}
-function renderReports(){const rows=filteredReports();$('reportList').className=reportView==='card'?'reportsgrid':'reportlist';$('reportList').innerHTML=rows.length?rows.map(r=>'<article class="card" data-report="'+esc(r.id)+'"><div class="reporthead">'+(eligible(r)?'<label class="check"><input data-select="'+esc(r.id)+'" type="checkbox" '+(selected.has(r.id)?'checked':'')+'>Pilih</label>':'<span class="badge '+(['PUBLISHED','TF_WEB_READY'].includes(r.state)?'good':r.validation?'warn':'')+'">'+esc(pendingReport(r.id)?pendingLabel(r.id):names[r.state]||r.state)+'</span>')+'<span class="small">'+esc(r.line.replace('_',' ')+(r.testOnly?' · Uji':'')+' · '+shiftLabel(r.workspaceShift))+'</span></div><div class="reportidentity"><div class="part">'+esc(r.part)+'</div><p class="small">'+esc(r.machine)+'<br>'+esc(r.operator)+'</p></div><div class="reportmeta"><span>OK <strong>'+esc(r.input.ok)+'</strong></span><span>Repair '+esc(r.input.repair)+'</span><span>Reject '+esc(r.input.reject)+'</span></div>'+(r.validation?'<p class="reportwarning badge warn">'+esc(r.validation)+'</p>':'')+'<p class="reportstate small'+(!eligible(r)&&!r.viewOnly?' repeatstate':'')+'">'+esc(r.viewOnly?r.productionState:names[r.state])+'</p><small class="small" style="overflow-wrap:anywhere">'+esc(r.id)+'</small><div class="actions">'+(eligible(r)?'<button class="primary" data-approve="'+esc(r.id)+'">Setujui</button>':'')+(r.line==='LINE_99'&&r.state==='PUBLISHED'&&data.revisionEnabled?'<button data-web-revision="'+esc(r.id)+'">Uji revisi web</button>':'')+'<button data-detail="'+esc(r.id)+'">'+((r.reviewSource==='LINE4_WEB'?!((eligible(r)||canRevise(r))&&r.reviewFields):r.viewOnly&&!data.revisionEnabled)?'Periksa laporan':'Periksa / revisi')+'</button></div></article>').join(''):'<div class="empty">'+(loading||data?.reportsLoaded===false?'Laporan sedang dimuat…':'Belum ada laporan untuk filter ini.')+'</div>';
+function ctAttention(report){return ['high','unavailable'].includes(report.ctCheck?.status);}
+function ctSummary(check){
+ if(check.status==='unavailable')return 'CT belum bisa dinilai · '+check.note;
+ const number=n=>n.toLocaleString('id-ID',{maximumFractionDigits:1});
+ return (check.status==='high'?'Periksa output':'Output')+' · '+number(check.actual)+' dari standar '+number(check.standard)+' '+check.unit+' ('+number(check.percent)+'%)';
+}
+function reportWarning(report){
+ const warnings=[report.validation];
+ if(ctAttention(report))warnings.push(ctSummary(report.ctCheck));
+ return warnings.filter(Boolean).join(' · ');
+}
+function renderReports(){const rows=filteredReports();$('reportList').className=reportView==='card'?'reportsgrid':'reportlist';$('reportList').innerHTML=rows.length?rows.map(r=>'<article class="card" data-report="'+esc(r.id)+'"><div class="reporthead">'+(eligible(r)?'<label class="check"><input data-select="'+esc(r.id)+'" type="checkbox" '+(selected.has(r.id)?'checked':'')+'>Pilih</label>':'<span class="badge '+(['PUBLISHED','TF_WEB_READY'].includes(r.state)?'good':r.validation?'warn':'')+'">'+esc(pendingReport(r.id)?pendingLabel(r.id):names[r.state]||r.state)+'</span>')+'<span class="small">'+esc(r.line.replace('_',' ')+(r.testOnly?' · Uji':'')+' · '+shiftLabel(r.workspaceShift))+'</span></div><div class="reportidentity"><div class="part">'+esc(r.part)+'</div><p class="small">'+esc(r.machine)+'<br>'+esc(r.operator)+'</p></div><div class="reportmeta"><span>OK <strong>'+esc(r.input.ok)+'</strong></span><span>Repair '+esc(r.input.repair)+'</span><span>Reject '+esc(r.input.reject)+'</span></div>'+(reportWarning(r)?'<p class="reportwarning badge warn">'+esc(reportWarning(r))+'</p>':'')+'<p class="reportstate small'+(!eligible(r)&&!r.viewOnly?' repeatstate':'')+'">'+esc(r.viewOnly?r.productionState:names[r.state])+'</p><small class="small" style="overflow-wrap:anywhere">'+esc(r.id)+'</small><div class="actions">'+(eligible(r)?'<button class="primary" data-approve="'+esc(r.id)+'">Setujui</button>':'')+(r.line==='LINE_99'&&r.state==='PUBLISHED'&&data.revisionEnabled?'<button data-web-revision="'+esc(r.id)+'">Uji revisi web</button>':'')+'<button data-detail="'+esc(r.id)+'">'+((r.reviewSource==='LINE4_WEB'?!((eligible(r)||canRevise(r))&&r.reviewFields):r.viewOnly&&!data.revisionEnabled)?'Periksa laporan':'Periksa / revisi')+'</button></div></article>').join(''):'<div class="empty">'+(loading||data?.reportsLoaded===false?'Laporan sedang dimuat…':'Belum ada laporan untuk filter ini.')+'</div>';
 $('reportList').querySelectorAll('[data-web-revision]').forEach(b=>b.onclick=()=>openWebRevision(b.dataset.webRevision));$('reportList').querySelectorAll('[data-approve]').forEach(b=>b.onclick=()=>approveCard(b.dataset.approve));$('reportList').querySelectorAll('[data-select]').forEach(b=>b.onchange=()=>{b.checked?selected.add(b.dataset.select):selected.delete(b.dataset.select);syncSelection();});$('reportList').querySelectorAll('[data-detail]').forEach(b=>b.onclick=()=>openDetail(b.dataset.detail));syncSelection();}
 function syncSelection(){const visible=filteredReports().filter(eligible),n=visible.filter(r=>selected.has(r.id)).length;$('selectAll').checked=!!visible.length&&n===visible.length;$('selectAll').indeterminate=n>0&&n<visible.length;$('selectAll').disabled=!visible.length;$('bulk').textContent=n>20?'Setujui 20 dari '+n:'Setujui terpilih ('+n+')';$('bulk').disabled=!n;$('selectionInfo').textContent='Pilihan berlaku pada hasil filter. Maksimal 20 laporan per pengiriman; laporan bermasalah diperiksa lewat detail.';}
 function renderTelegram(){const buttons=$('telegramButtons');if(tab!=='telegram'||!contextMatches()||data.reportsLoaded===false||data.reportLine){$('telegramText').textContent='Buka tab Ringkasan Telegram untuk memuat ringkasan seluruh line pada tanggal dan shift ini.';if(buttons)buttons.innerHTML='';return;}
@@ -360,6 +371,15 @@ function openDetail(id){const report=data.reports.find(r=>r.id===id);if(!report)
  if(report.reviewSource==='LINE4_WEB'){
   current=report;$('revisionForm').hidden=true;const input=report.input;
   $('detailBody').innerHTML='<p class="part">'+esc(report.part)+'</p><p>'+esc(report.date+' · '+shiftLabel(report.workspaceShift)+' · '+report.line.replace('_',' ')+' · '+report.machine)+'</p><p>'+esc(report.operator)+'</p><p>'+esc(input.start+'–'+input.end+' WIB · Lembur: '+(input.overtime==='Yes'?'Ya':'Tidak'))+'</p><p>'+esc('OK '+input.ok+' / Repair '+input.repair+' / Reject '+input.reject)+'</p><p class="badge">'+esc(names[report.state])+'</p>'+(input.problem?'<p>Kendala: '+esc(input.problem)+'</p>':'')+(input.action?'<p>Tindakan: '+esc(input.action)+'</p>':'')+(report.validation?'<p>'+esc(report.validation)+'</p>':'')+'<p class="small">'+esc(report.id)+'</p>';
+  if(report.ctCheck){
+   const check=report.ctCheck,note=document.createElement('p');note.className=ctAttention(report)?'badge warn':'small';
+   note.textContent=ctSummary(check);$('detailBody').append(note);
+   if(check.seconds){
+    const basis=document.createElement('p');basis.className='small';
+    basis.textContent='CT '+check.seconds.toLocaleString('id-ID',{maximumFractionDigits:3})+' detik/'+(report.line==='LINE_8'?'batang':'pcs')+' · Waktu operasional '+check.operatingMinutes+' menit · Master '+check.day;
+    $('detailBody').append(basis);
+   }
+  }
   const delivery={PENDING:'Google Sheets · menunggu penerusan',DELIVERED:'Google Sheets · diteruskan ke Apps Script'}[report.sheetDelivery];
   if(delivery){
    const note=document.createElement('p');note.className='small';note.textContent=delivery;$('detailBody').append(note);

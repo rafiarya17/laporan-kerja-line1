@@ -1,3 +1,4 @@
+import {reviewCt} from './review-ct';
 import { EARLY_PRODUCTION_MINUTES, processInterval, validateSubmission, type Master, type Submission } from './lkh';
 import { intakeMaster, sqlDatabase } from './sql-intake';
 
@@ -91,7 +92,7 @@ export async function remapReviewPart(id: string, hash: string, part: string, ac
 
 export async function line4ReviewSnapshot(date: string, shift: string, line: string, webOnly = false) {
   const sql = sqlDatabase();
-  const rows = await sql`SELECT id,payload,leader_review AS review,delivery_state,
+  const [rows, ctRows] = await Promise.all([sql`SELECT id,payload,leader_review AS review,delivery_state,
     (SELECT mirror_state FROM lkh_report_revisions WHERE request_id=(leader_review->>'revisionId')::uuid) AS mirror_state,
     EXISTS(SELECT 1 FROM lkh_report_revisions WHERE report_id=lkh_reports.id AND mirror_state='REVIEW') AS mirror_blocked,
     encode(sha256(convert_to(payload::text || COALESCE(leader_review->>'deliveryPart',''),'UTF8')),'hex') AS hash
@@ -99,7 +100,11 @@ export async function line4ReviewSnapshot(date: string, shift: string, line: str
     WHERE leader_review IS NOT NULL AND (payload->>'line' ~ '^LINE_[1-8]$' OR (payload->>'line'='LINE_99' AND leader_review->>'testOnly'='true'))
       AND (${line}::text = '' OR payload->>'line' = ${line})
       AND payload->'form'->>'tanggal'=${date} AND payload->'form'->>'shift'=${shift}
-    ORDER BY received_at`;
+    ORDER BY received_at`,
+    webOnly ? sql`SELECT source_date::text AS day,rates,part_specs FROM leader_cycle_catalog WHERE singleton`
+      .catch(()=>{console.warn('REVIEW_CT_CATALOG_UNAVAILABLE');return [];}) : [],
+  ]);
+  const catalog=ctRows[0];
   const requests = [];
   const reports = [];
   const now = Date.now();
@@ -118,9 +123,12 @@ export async function line4ReviewSnapshot(date: string, shift: string, line: str
         else state = interval.end > now ? 'WAITING_PROCESS_END' : 'TF_WEB_READY';
       }
     }
+    const part=row.review.deliveryPart||form.part;
+    const ctKey=JSON.stringify([row.payload.line,form.mesin,part]);
     reports.push({
+      ...(webOnly?{ctCheck:reviewCt(row.payload.line,form,catalog?.rates?.[ctKey],catalog?.part_specs?.[ctKey],catalog?.day??null)}:{}),
       id: row.id, line: row.payload.line, date, shift, hash: row.hash,
-      machine: form.mesin, part: row.review.deliveryPart || form.part, originalPart: form.part, reviewSource: 'LINE4_WEB', viewOnly: false,
+      machine: form.mesin, part, originalPart: form.part, reviewSource: 'LINE4_WEB', viewOnly: false,
       operator: form.operator.map(name=>name==='__other_option__'?form.operatorLainnya:name).join(', '),
       state,
       validation,
