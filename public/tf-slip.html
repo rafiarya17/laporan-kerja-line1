@@ -7,7 +7,9 @@
   <title>TF Slip Web · Berlindo</title>
   <link rel="stylesheet" href="/leader.css">
   <link rel="stylesheet" href="/tf-slip.css?v=pdf-margin2">
-  <script defer src="/tf-slip.js?v=sort-print1"></script>
+  <script defer src="/vendor/pdf-lib-1.17.1.min.js"></script>
+  <script defer src="/tf-slip-pdf.js?v=1"></script>
+  <script defer src="/tf-slip.js?v=direct-pdf1"></script>
 </head>
 <body>
   <main>
@@ -43,8 +45,9 @@
             <div class="check-menu"><div id="info-columns" class="check-group"></div></div>
           </details>
         </div>
-        <button type="button" class="primary" id="print" disabled>Cetak / Simpan PDF</button>
+        <button type="button" class="primary" id="print" disabled>Unduh PDF</button>
       </div>
+      <p id="pdf-error" class="screen-only" role="alert" hidden></p>
       <p id="scope" class="print-only"></p>
       <p id="summary" class="screen-only" role="status"></p>
       <p id="timing" class="screen-only"></p>

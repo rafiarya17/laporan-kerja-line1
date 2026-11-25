@@ -185,6 +185,7 @@ function addSortButton(th, title, key, activeSort) {
   th.append(button);
 }
 
+let downloadingPdf = false;
 function renderTable() {
   const terms = el('search').value.trim().toLowerCase().split(/\s+/).filter(Boolean);
   const matches = (rows ?? []).filter(row => {
@@ -196,7 +197,7 @@ function renderTable() {
   searchStatus.textContent = searchStatus.hidden ? '' : matches.length
     ? matches.length + ' dari ' + rows.length + ' laporan cocok.'
     : 'Tidak ada part atau mesin yang cocok dalam filter ini.';
-  el('print').disabled = !matches.length;
+  el('print').disabled = downloadingPdf || !matches.length;
   const allShifts = showingAllShifts();
   const visible = (allShifts ? allColumns : columns).filter(([key]) => selected.includes(key));
   const activeSort = visible.some(([key]) => key === sort?.key) ? sort : null;
@@ -329,5 +330,36 @@ async function load() {
 for (const key of filters) el(key).onchange = load;
 el('refresh').onclick = load;
 el('search').addEventListener('input', renderTable);
-el('print').onclick = () => window.print();
+el('print').onclick = async () => {
+  const button = el('print');
+  if (button.disabled) return;
+  downloadingPdf = button.disabled = true;
+  el('pdf-error').hidden = true;
+  try {
+    const fields = Array.from(table.tHead.rows[0].cells, (cell, index) => ({
+      label: cell.querySelector('button').textContent,
+      key: columnGroup.children[index].dataset.key,
+      width: Number.parseInt(columnGroup.children[index].style.width, 10)
+    }));
+    const rows = Array.from(table.tBodies[0].rows, row =>
+      Array.from(row.cells, cell => cell.textContent));
+    const filename = ['TF-Slip', ...new Set([el('date').value, el('to').value])].join('-') + '.pdf';
+    const bytes = await buildTfSlipPdf(fields, rows, el('scope').textContent);
+    const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch (error) {
+    console.error('Gagal membuat PDF TF Slip', error);
+    el('pdf-error').textContent = 'PDF gagal dibuat. Coba unduh lagi.';
+    el('pdf-error').hidden = false;
+  } finally {
+    downloadingPdf = false;
+    button.disabled = table.hidden;
+  }
+};
 load();
