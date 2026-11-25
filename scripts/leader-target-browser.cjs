@@ -60,13 +60,37 @@ const base=process.env.PORTAL_TEST_URL||'http://127.0.0.1:4357';
   const cards=page.locator('#targetList .targetrow');
   const shift2Pipe=cards.filter({hasText:'Shift 2'}).filter({hasText:'PIPE A'});
   const edit=shift2Pipe.getByRole('button',{name:'Revisi / hapus'});
+  const dialog=page.getByRole('dialog',{name:'Revisi target shift'});
+  await page.evaluate(()=>{
+   const date=document.getElementById('date').value;
+   window.PortalDraft.set('leader-target:'+date+'|2|LINE_99',{version:7,items:[],reason:'Draf lama yang dibatalkan',zero:true});
+  });
   await edit.click();
   assert.ok((await edit.boundingBox()).height>=44);
   assert.equal(await page.locator('#targetShift').inputValue(),'2');
   assert.equal(await page.locator('#targetLine').inputValue(),'LINE_99');
-  const dialog=page.getByRole('dialog',{name:'Revisi target shift'});
   assert.equal(await dialog.locator('#targetScope').isVisible(),false);
   assert.equal(await dialog.locator('#targetContext').textContent().then(s=>s.endsWith('Shift 2 · LINE 99')),true);
+  assert.equal(await dialog.locator('[data-qty]').count(),2);
+  const beforeCancel=writes.length;
+  for(const close of [
+   async()=>dialog.getByRole('button',{name:'Batal',exact:true}).click(),
+   async()=>dialog.getByRole('button',{name:'Tutup',exact:true}).click(),
+   async()=>page.keyboard.press('Escape'),
+  ]){
+   await dialog.locator('#clearTargetItems').click();
+   await dialog.locator('#targetReason').fill('Perubahan dibatalkan');
+   await close();
+   await dialog.waitFor({state:'hidden'});
+   await edit.click();
+   assert.equal(await dialog.locator('[data-qty]').count(),2);
+   assert.equal(await dialog.locator('#targetReason').inputValue(),'');
+  }
+  await dialog.getByRole('button',{name:'Hapus PIPE A'}).click();
+  await dialog.getByRole('button',{name:'Batal',exact:true}).click();
+  await edit.click();
+  assert.equal(await dialog.locator('[data-qty]').count(),2);
+  assert.equal(writes.length,beforeCancel);
   const focused=dialog.locator('[data-target-item]:focus [data-qty]');
   assert.equal(await focused.inputValue(),'35');
   await focused.fill('40');

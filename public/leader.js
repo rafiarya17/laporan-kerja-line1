@@ -167,6 +167,7 @@ function openTargets(item){
  for(const option of shiftSelect.options)option.disabled=!!option.value&&data.shift!=='all'&&option.value!==data.shift;
  shiftSelect.value=item?.workspaceShift||(data.shift==='all'?'':data.shift);
  $('targetScope').hidden=Boolean(item);
+ targetDraftKeys.clear();
  $('targetDialog').querySelector('.feedback')?.remove();
  setTargetLine();
  restoreTargetDraft();
@@ -316,15 +317,49 @@ function restoreRevisionDraft(){
 $('detailDialog').addEventListener('input',saveRevisionDraft);$('detailDialog').addEventListener('change',saveRevisionDraft);$('detailDialog').addEventListener('cancel',saveRevisionDraft);
 window.addEventListener('pagehide',saveRevisionDraft);
 function targetDraftKey(p){return 'leader-target:'+(p?[p.date,p.shift,p.line]:[$('date').value,$('targetShift').value,$('targetLine').value]).join('|');}
-function saveTargetDraft(){if(!$('targetDialog').open||!$('targetShift').value||!$('targetLine').value)return;window.PortalDraft?.set(targetDraftKey(),{version:targetVersion,items:draft,reason:$('targetReason').value,zero:$('zeroConfirm').checked});}
-function restoreTargetDraft(){const saved=window.PortalDraft?.get(targetDraftKey());if(!saved)return;if(saved.version!==targetVersion){notify('Ada draf lama, tetapi versi target di server telah berubah. Target terbaru digunakan; periksa kembali sebelum mengubah.',true,false);return;}draft=saved.items;$('targetReason').value=saved.reason||'';$('zeroConfirm').checked=!!saved.zero;renderParts();renderDraft();}
+const targetDraftKeys=new Set();
+function saveTargetDraft(){
+ if(!$('targetDialog').open||!$('targetShift').value||!$('targetLine').value)return;
+ const key=targetDraftKey();
+ targetDraftKeys.add(key);
+ window.PortalDraft?.set(key,{schema:2,version:targetVersion,items:draft,reason:$('targetReason').value,zero:$('zeroConfirm').checked});
+}
+function restoreTargetDraft(){
+ const key=targetDraftKey(),saved=window.PortalDraft?.get(key);
+ if(!saved)return;
+ // Older versions also saved explicitly cancelled edits to this key.
+ if(saved.schema!==2||!Array.isArray(saved.items)){window.PortalDraft?.remove(key);return;}
+ targetDraftKeys.add(key);
+ if(saved.version!==targetVersion){
+  notify('Ada draf lama, tetapi versi target di server telah berubah. Target terbaru digunakan; periksa kembali sebelum mengubah.',true,false);
+  return;
+ }
+ draft=saved.items.map(item=>({...item}));
+ $('targetReason').value=saved.reason||'';
+ $('zeroConfirm').checked=!!saved.zero;
+ renderParts();
+ renderDraft();
+}
+function cancelTargetEdit(){
+ const dialog=$('targetDialog');
+ dialog.close();
+ for(const key of targetDraftKeys)window.PortalDraft?.remove(key);
+ targetDraftKeys.clear();
+}
 $('leader').addEventListener('input',()=>window.PortalDraft?.set('leader-name',$('leader').value));
 $('targetDialog').addEventListener('input',e=>{if(!['targetShift','targetLine'].includes(e.target.id))saveTargetDraft();});
 $('targetDialog').addEventListener('change',saveTargetDraft);
 $('targetDialog').addEventListener('click',saveTargetDraft);
-$('targetDialog').addEventListener('cancel',saveTargetDraft);
+$('targetDialog').addEventListener('cancel',event=>{event.preventDefault();cancelTargetEdit();});
 window.addEventListener('pagehide',()=>{saveTargetDraft();cancelLoad();});
-document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>{saveTargetDraft();saveRevisionDraft();$(b.dataset.close).close();});$('refresh').onclick=load;for(const id of ['date','shift','line'])$(id).onchange=()=>{selected.clear();load();};$('status').onchange=renderReports;
+document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
+document.querySelectorAll('[data-close]').forEach(button=>button.onclick=()=>{
+ const id=button.dataset.close;
+ if(id==='targetDialog'){cancelTargetEdit();return;}
+ saveRevisionDraft();
+ $(id).close();
+});
+$('refresh').onclick=load;for(const id of ['date','shift','line'])$(id).onchange=()=>{selected.clear();load();};$('status').onchange=renderReports;
 let reportView='card';
 try{if(localStorage.getItem('leader-report-view')==='list')reportView='list';}catch{}
 const viewButtons=document.querySelectorAll('[data-view]');
@@ -387,7 +422,7 @@ async function submitTarget(payload){
    }
   }
   payload.items=selection.items;
-  window.PortalDraft?.set(targetDraftKey(payload),{version:payload.expectedVersion,items:payload.items,reason:payload.reason,zero:!payload.items.length});
+  window.PortalDraft?.set(targetDraftKey(payload),{schema:2,version:payload.expectedVersion,items:payload.items,reason:payload.reason,zero:!payload.items.length});
   notify('Target sedang dikirim. Hasil berhasil atau gagal akan tampil di halaman ini.',false,false);
   await startOperation('target',payload);
  }catch(e){notify(e.message,true,false);}finally{targetPreparing=false;if(contextMatches()&&!data.reportsLoaded&&!loading)load();}
