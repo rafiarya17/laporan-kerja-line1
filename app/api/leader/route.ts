@@ -1,3 +1,4 @@
+import {targetProgress} from '@/lib/target-progress';
 import {reviseApproved} from '@/lib/web-report-revision';
 import {drainRevisionDelivery} from '@/lib/revision-delivery';
 import {enrichPlanning,savePlanning} from '@/lib/leader-planning';
@@ -28,6 +29,12 @@ export async function POST(r:Request){
  if(portalPreview()){
   try{
    const b=await r.json();if(b.action!=='snapshot')return previewBlocked();
+   if(b.phase==='target-progress'){
+    const shifts=b.shift==='all'?['1','2']:[b.shift];
+    const reports=shifts.flatMap(shift=>previewWorkspace(b.date,shift,b.line).data.reports
+     .filter(r=>!b.line||r.line===b.line).map(r=>({...r,workspaceShift:shift})));
+    return Response.json({ok:true,data:{date:b.date,shift:b.shift,reportLine:b.line||'',reports}},{headers:previewHeaders});
+   }
    const sample=previewWorkspace(String(b.date||''),String(b.shift||'1'),String(b.line||''));
    if(b.phase==='web-reports'){
     const reports=sample.data.reports.filter(report=>!b.line||report.line===b.line).map(report=>({
@@ -53,6 +60,15 @@ export async function POST(r:Request){
  const pilotEnabled=process.env.VERCEL_ENV==='production' && sqlSubmissionEnabled('LINE_4');
  const receiverConfigured=receiverReady()&&receiverMode()==='production';
  const notConfigured=()=>reply({ok:false,error:'LEADER_NOT_CONFIGURED'},503);
+ if(body.action==='snapshot'&&body.phase==='target-progress'){
+  const {date,shift,line=''}=body;
+  if(!validWebReviewScope({date,shift:shift==='all'?'1':shift,line}))return reply({ok:false,error:'INVALID_REVIEW_FILTER'},400);
+  if(!pilotEnabled)return reply({ok:false,error:'WEB_REVIEW_UNAVAILABLE'},503);
+  const start=performance.now();
+  const data=await targetProgress(date,shift,line);
+  h.set('Server-Timing','neon;dur='+(performance.now()-start).toFixed(1));
+  return reply({ok:true,data});
+ }
  if(body.action==='snapshot'&&body.phase==='web-reports'){
   const scope={date:body.date,shift:body.shift,line:body.line??''};
   if(!validWebReviewScope(scope))return reply({ok:false,error:'INVALID_REVIEW_FILTER'},400);

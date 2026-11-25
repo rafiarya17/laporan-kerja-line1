@@ -32,9 +32,10 @@ const messages={OPEN_NATIVE_REVISION:'Laporan ini dikelola di Web App. Pilih sum
 async function api(body,signal){const r=await andonFetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal,cache:'no-store'},80000);let b;try{b=await r.json();}catch{throw Error('Respons belum dapat dikonfirmasi.');}if(!r.ok||!b.ok){const e=Error(messages[b.error]||b.error||'Koneksi belum berhasil.');e.confirmed=r.status<500&&!['BUSY_RETRY_SAME_ID'].includes(b.error);throw e;}return b;}
 function reportSource(){return $('reportSource').value;}
 if(params.get('source')==='legacy')$('reportSource').value='legacy';
+function workspaceSource(){return tab==='reports'?reportSource():tab==='targets'?'target-'+$('targetSource').value:'telegram';}
 function contextMatches(){
- const source=tab==='reports'?reportSource():undefined;
- return data&&data.source===source&&data.date===$('date').value&&data.shift===$('shift').value&&(data.reportLine===undefined||!data.reportLine||data.reportLine===$('line').value);
+ const source=workspaceSource();
+ return data&&data.source===source&&data.date===$('date').value&&data.shift===$('shift').value&&data.scopeLine===(tab==='telegram'?'':$('line').value);
 }
 function view(){const line=$('line').value;return {reports:contextMatches()?data.reports.filter(r=>!line||r.line===line):[],targets:contextMatches()?data.targets.filter(t=>!line||t.line===line):[]};}
 const targetDisplayKey=item=>JSON.stringify([item.workspaceShift,core.key(item)]);
@@ -72,7 +73,7 @@ function qtySummary(t){
  const pcs=n=>esc(n.toLocaleString('id-ID'))+' pcs';
  const hours=t.hours?`<small class="small">${esc(t.hours.toLocaleString('id-ID'))} jam efektif${t.manualQty?' · Qty manual':''}</small>`:'';
  const target=`<span>Target OK: <strong>${t.targetQty===null?'Belum diisi':pcs(t.targetQty)}</strong></span>`;
- if(data.reportsLoaded===false)return `<div class="qtysummary">${hours}${target}<small class="small">Hasil produksi sedang dimuat…</small></div>`;
+ if(data.reportsLoaded===false)return `<div class="qtysummary">${hours}${target}<small class="small">${loading?'Hasil produksi sedang dimuat…':'Hasil produksi belum tersedia.'}</small></div>`;
  const actual=`<span>OK dilaporkan: <strong>${pcs(t.actualOk)}</strong></span>`;
  let result='';
  if(t.targetQty!==null&&t.reports.length){
@@ -108,6 +109,7 @@ $('targetList').querySelectorAll('[data-target]').forEach(button=>button.onclick
  $('line').value=item.line;
  $('shift').value=item.workspaceShift;
  $('status').value='';
+ $('reportSource').value=item.reports[0]?.fromArchive?'legacy':'web';
  showTab('reports',false);
  await load();
  const id=item.reports[0]?.id;
@@ -120,7 +122,7 @@ addOperatorTargetLinks(s.items);renderReports();renderPending();renderTelegram()
 function renderReports(){const rows=filteredReports();$('reportList').className=reportView==='card'?'reportsgrid':'reportlist';$('reportList').innerHTML=rows.length?rows.map(r=>'<article class="card" data-report="'+esc(r.id)+'"><div class="reporthead">'+(eligible(r)?'<label class="check"><input data-select="'+esc(r.id)+'" type="checkbox" '+(selected.has(r.id)?'checked':'')+'>Pilih</label>':'<span class="badge '+(['PUBLISHED','TF_WEB_READY'].includes(r.state)?'good':r.validation?'warn':'')+'">'+esc(pendingReport(r.id)?pendingLabel(r.id):names[r.state]||r.state)+'</span>')+'<span class="small">'+esc(r.line.replace('_',' ')+(r.testOnly?' · Uji':'')+' · '+shiftLabel(r.workspaceShift))+'</span></div><div class="reportidentity"><div class="part">'+esc(r.part)+'</div><p class="small">'+esc(r.machine)+'<br>'+esc(r.operator)+'</p></div><div class="reportmeta"><span>OK <strong>'+esc(r.input.ok)+'</strong></span><span>Repair '+esc(r.input.repair)+'</span><span>Reject '+esc(r.input.reject)+'</span></div>'+(r.validation?'<p class="reportwarning badge warn">'+esc(r.validation)+'</p>':'')+'<p class="reportstate small'+(!eligible(r)&&!r.viewOnly?' repeatstate':'')+'">'+esc(r.viewOnly?r.productionState:names[r.state])+'</p><small class="small" style="overflow-wrap:anywhere">'+esc(r.id)+'</small><div class="actions">'+(eligible(r)?'<button class="primary" data-approve="'+esc(r.id)+'">Setujui</button>':'')+(r.line==='LINE_99'&&r.state==='PUBLISHED'&&data.revisionEnabled?'<button data-web-revision="'+esc(r.id)+'">Uji revisi web</button>':'')+'<button data-detail="'+esc(r.id)+'">'+((r.reviewSource==='LINE4_WEB'?!((eligible(r)||canRevise(r))&&r.reviewFields):r.viewOnly&&!data.revisionEnabled)?'Periksa laporan':'Periksa / revisi')+'</button></div></article>').join(''):'<div class="empty">'+(loading||data?.reportsLoaded===false?'Laporan sedang dimuat…':'Belum ada laporan untuk filter ini.')+'</div>';
 $('reportList').querySelectorAll('[data-web-revision]').forEach(b=>b.onclick=()=>openWebRevision(b.dataset.webRevision));$('reportList').querySelectorAll('[data-approve]').forEach(b=>b.onclick=()=>approveCard(b.dataset.approve));$('reportList').querySelectorAll('[data-select]').forEach(b=>b.onchange=()=>{b.checked?selected.add(b.dataset.select):selected.delete(b.dataset.select);syncSelection();});$('reportList').querySelectorAll('[data-detail]').forEach(b=>b.onclick=()=>openDetail(b.dataset.detail));syncSelection();}
 function syncSelection(){const visible=filteredReports().filter(eligible),n=visible.filter(r=>selected.has(r.id)).length;$('selectAll').checked=!!visible.length&&n===visible.length;$('selectAll').indeterminate=n>0&&n<visible.length;$('selectAll').disabled=!visible.length;$('bulk').textContent=n>20?'Setujui 20 dari '+n:'Setujui terpilih ('+n+')';$('bulk').disabled=!n;$('selectionInfo').textContent='Pilihan berlaku pada hasil filter. Maksimal 20 laporan per pengiriman; laporan bermasalah diperiksa lewat detail.';}
-function renderTelegram(){const buttons=$('telegramButtons');if(!contextMatches()||data.reportsLoaded===false||data.reportLine){$('telegramText').textContent='Buka tab Ringkasan Telegram untuk memuat ringkasan seluruh line pada tanggal dan shift ini.';if(buttons)buttons.innerHTML='';return;}
+function renderTelegram(){const buttons=$('telegramButtons');if(tab!=='telegram'||!contextMatches()||data.reportsLoaded===false||data.reportLine){$('telegramText').textContent='Buka tab Ringkasan Telegram untuk memuat ringkasan seluruh line pada tanggal dan shift ini.';if(buttons)buttons.innerHTML='';return;}
  if(data.shift==='all'){$('telegramText').textContent='Pilih Shift 1 atau Shift 2 untuk melihat kartu Telegram shift tersebut.';if(buttons)buttons.innerHTML='';return;}
  const card=leaderCardModel(data.date,data.shift,data.targets,data.reports,core.summarize(data.targets,data.reports),location.origin+'/leader');$('telegramText').textContent=card.text;if(buttons)buttons.innerHTML=card.inline_keyboard.map(row=>row.map(b=>'<a class="tgbutton" href="'+esc(b.url)+'">'+esc(b.text)+'</a>').join('')).join('');
 }
@@ -131,7 +133,7 @@ async function load(){
  cancelLoad();
  selected.clear();
  const date=$('date').value,shift=$('shift').value,line=tab==='telegram'?'':$('line').value;
- const source=tab==='reports'?reportSource():undefined;
+ const source=workspaceSource();
  if(!date)return;
  const e=epoch,c=new AbortController();
  loadController=c;loading=true;$('refresh').disabled=true;$('refresh').textContent='Memuat…';
@@ -141,22 +143,40 @@ async function load(){
   const shifts=shift==='all'?['1','2']:[shift];
   const read=async (oneShift,phase)=>{
    const {data:snapshot}=await api({action:'snapshot',phase,date,shift:oneShift,line},c.signal);
-   if(!snapshot||snapshot.date!==date||snapshot.shift!==oneShift)throw Error('Pilihan tanggal atau shift tidak cocok. Muat ulang.');
+   if(!snapshot||snapshot.date!==date||snapshot.shift!==oneShift||(snapshot.reportLine&&snapshot.reportLine!==line))throw Error('Pilihan tanggal atau shift tidak cocok. Muat ulang.');
    return snapshot;
   };
   const combine=(snapshots,catalog)=>{
    const tagged=key=>snapshots.flatMap(snapshot=>snapshot[key].map(row=>({...row,workspaceShift:snapshot.shift})));
-   return {...snapshots[0],source,shift,catalog,targets:tagged('targets'),reports:tagged('reports'),
+   return {...snapshots[0],scopeLine:line,source,shift,catalog,targets:tagged('targets'),reports:tagged('reports'),
     requests:[...new Map(snapshots.flatMap(snapshot=>snapshot.requests).map(req=>[req.requestId,req])).values()],
     reportsLoaded:snapshots.every(snapshot=>snapshot.reportsLoaded!==false),
     checkedAt:snapshots.map(snapshot=>snapshot.checkedAt).sort().at(-1)};
   };
   const phase=source==='web'?'web-reports':source==='legacy'?'legacy-reports':'targets';
+  // Start the independent report read while the target register and CT catalog load.
+  // Handle rejection immediately, even when a slow target read or a tab switch wins the race.
+  const isTarget=tab==='targets';
+  const progress=isTarget?Promise.all([
+   read(shift,'target-progress'),
+   source==='target-archive'?Promise.all(shifts.map(s=>read(s,'legacy-reports'))):Promise.resolve([]),
+  ]).then(([native,archive])=>{
+   const byId=new Map();
+   for(const snapshot of archive)for(const report of snapshot.reports)byId.set(report.id,{...report,workspaceShift:snapshot.shift,fromArchive:true});
+   for(const report of native.reports)byId.set(report.id,report);
+   return {reports:[...byId.values()]};
+  }).catch(error=>({error})):null;
   const first=await Promise.all(shifts.map(oneShift=>read(oneShift,phase)));
   if(e!==epoch)return;
   const catalog=[...new Map(first.flatMap(snapshot=>snapshot.catalog).map(item=>[core.key(item),item])).values()];
   data=combine(first,catalog);
-  if(!source&&!data.reportsLoaded){
+  if(progress){
+   data.reports=[];data.reportsLoaded=false;render();
+   const outcome=await progress;
+   if(e!==epoch)return;
+   if(outcome.error)throw outcome.error;
+   data.reports=outcome.reports;data.reportsLoaded=true;
+  }else if(source==='telegram'&&!data.reportsLoaded){
    render();$('checked').textContent='Target dimuat '+new Date(data.checkedAt).toLocaleTimeString('id-ID',{timeZone:'Asia/Jakarta'});
    notify('Target dimuat. Laporan dan status TF sedang dimuat…');
    const complete=await Promise.all(first.map(snapshot=>snapshot.reportsLoaded===false?read(snapshot.shift,'reports'):snapshot));
@@ -172,8 +192,8 @@ async function load(){
   if(e!==epoch||c.signal.aborted)return;
   loading=false;
   if(!contextMatches())$('checked').textContent='Belum dimuat';
-  renderReports();
-  notify(!source&&data?.reportsLoaded===false?'Target sudah siap. Laporan belum berhasil dimuat; tekan Muat ulang.':error.message,true);
+  render();
+  notify(contextMatches()&&data?.reportsLoaded===false?'Target sudah siap. Laporan belum berhasil dimuat; tekan Muat ulang.':error.message,true);
  }finally{if(e===epoch){loading=false;$('refresh').disabled=false;$('refresh').textContent='Muat ulang';}}
 }
 function approveCard(id){const r=data?.reports.find(r=>r.id===id);if(!r||!eligible(r))return;try{actor();}catch(e){notify(e.message,true);return;}
@@ -201,7 +221,7 @@ else{operationCommands(op).forEach(c=>{selected.delete(c.id);window.PortalDraft?
 notify(op.error?'Sebagian permintaan perlu diperiksa: '+op.error:r.result?.state==='WEB_REVISED'?'Revisi tersimpan di Web App.':'Tersimpan. '+(op.body.action==='target'?'Target shift diperbarui.':'Keputusan/input diterima untuk diproses. Tekan Muat ulang untuk melihat penerapan dan status TF Slip.')+' Pembaruan Telegram berjalan terpisah.'+(op.body.action==='decideBatch'&&selected.size?' Sisa terpilih pada filter ini: '+filteredReports().filter(r=>eligible(r)&&selected.has(r.id)).length+'.':''),!!op.error,false);
 }catch(e){op.state=e.confirmed?'rejected':'unknown';op.error=e.message;notify(e.message+'\nID: '+op.id+'\nPermintaan lain tetap dapat digunakan.',true,false);}finally{saveOperations();render();if((op.state==='accepted'||(op.state==='done'&&op.body.action==='reviseApproved'))&&tab==='reports'&&reportSource()==='web')load();}}
 function showTab(name,reload=true){
- const changedSource=(tab==='reports')!==(name==='reports');
+ const changedSource=tab!==name;
  tab=name;
  const u=new URL(location.href);u.searchParams.set('tab',name);history.replaceState(null,'',u.pathname+u.search);
  document.querySelectorAll('.tab').forEach(e=>e.hidden=e.id!==name);
@@ -428,7 +448,7 @@ document.querySelectorAll('[data-close]').forEach(button=>button.onclick=()=>{
  $(id).close();
 });
 $('refresh').onclick=load;
-for(const id of ['date','shift','line','reportSource'])$(id).onchange=load;
+for(const id of ['date','shift','line','reportSource','targetSource'])$(id).onchange=load;
 $('status').onchange=renderReports;
 let reportView='card';
 try{if(localStorage.getItem('leader-report-view')==='list')reportView='list';}catch{}
