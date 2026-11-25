@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Cetak Planning PPC · Berlindo</title>
+  <link rel="stylesheet" href="/leader.css">
+  <link rel="stylesheet" href="/ppc-print.css">
+  <script defer src="/ppc-print.js"></script>
+</head>
+<body>
+  <main>
+    <header class="page-heading">
+      <p class="brand-label">BERLINDO · DIGITAL ANDON</p>
+      <h1>Planning PPC</h1>
+      <p class="preview-label screen-only">Pratinjau cetak dengan data contoh</p>
+      <p id="print-scope" class="print-only"></p>
+    </header>
+
+    <section class="panel screen-only" aria-label="Pengaturan cetak">
+      <div class="filters">
+        <label>Tanggal produksi <input id="date" type="date"></label>
+        <label>Shift
+          <select id="shift">
+            <option value="">Semua shift</option>
+            <option value="1">Shift 1</option>
+            <option value="2">Shift 2</option>
+          </select>
+        </label>
+        <label>Line
+          <select id="line"><option value="">Semua line</option></select>
+        </label>
+        <label>Cari mesin atau part <input id="search" type="search" placeholder="Nama mesin atau kode part"></label>
+      </div>
+      <div class="print-actions">
+        <details id="columns">
+          <summary>Pilih kolom</summary>
+          <div id="column-list" role="group" aria-label="Kolom opsional"></div>
+        </details>
+        <button class="primary" id="print" type="button" disabled>Cetak / Simpan PDF</button>
+      </div>
+    </section>
+
+    <p id="status" class="screen-only" role="status"></p>
+    <div id="orders"></div>
+  </main>
+</body>
+</html>
