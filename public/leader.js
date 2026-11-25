@@ -57,8 +57,11 @@ function summaryCards(s){const values=[['Target laporan',s.expected,'item part�
 function qtySummary(t){const hours=t.hours?'<small>'+esc(t.hours.toLocaleString('id-ID'))+' jam efektif'+(t.manualQty?' · Qty manual':'')+'</small>':'';if(data?.reportsLoaded===false)return '<div class="qtysummary">'+hours+'<span>Target OK: <strong>'+esc(t.targetQty??'Belum diisi')+' pcs</strong></span><small>Hasil produksi sedang dimuat…</small></div>';return '<div class="qtysummary">'+hours+'<span>Target OK: <strong>'+ (t.targetQty===null?'Belum diisi':esc(t.targetQty.toLocaleString('id-ID'))+' pcs')+'</strong></span><span>OK dilaporkan: <strong>'+esc(t.actualOk.toLocaleString('id-ID'))+' pcs</strong></span><small class="small">'+(t.targetQty===null?'Target lama belum memiliki qty':t.qtyReached?'Qty tercapai'+(t.actualOk>t.targetQty?' · lebih '+esc((t.actualOk-t.targetQty).toLocaleString('id-ID'))+' pcs':''):'Kurang '+esc(t.shortfall.toLocaleString('id-ID'))+' pcs')+'</small></div>'; }
 function render(){updateOperatorLinks();const v=view(),s=summarizeView(v);summaryCards(s);if(!contextMatches()||data.reportsLoaded===false){$('stats').querySelectorAll('b').forEach((b,i)=>{if(i>0||!contextMatches())b.textContent='—';});}$('heroDate').textContent=$('date').value;$('heroShift').textContent=shiftLabel($('shift').value);$('reportCount').textContent=v.reports.length?'('+v.reports.length+')':'';
 $('targetStatus').textContent=v.targets.length?v.targets.map(t=>shiftLabel(t.workspaceShift)+' · '+t.line.replace('_',' ')+' · v'+t.version+' · '+t.leader+(t.items.length?'':' · Tidak ada target')).join(' | '):'Target belum diisi untuk pilihan ini. Belum diisi berbeda dengan tidak ada target.';
-$('targetList').innerHTML=!s.items.length?'<div class="empty"><strong>Belum ada item target.</strong><br>Atur daftar part dan mesin yang harus dilaporkan pada shift ini.</div>':s.items.map(t=>'<article class="card targetrow"><div><span class="small">'+esc(t.line.replace('_',' ')+' · '+shiftLabel(t.workspaceShift))+'</span><br><strong>'+esc(t.machine)+'</strong></div><div><span class="small">Part / proses</span><br><strong>'+esc(t.part)+'</strong>'+qtySummary(t)+'</div><div><span class="badge '+(t.reports.length?'good':'warn')+'">'+(data.reportsLoaded===false?'Hasil sedang dimuat…':t.reports.length?'Sudah dilaporkan':'Belum dilaporkan')+'</span><br><small class="small">'+(data.reportsLoaded===false?'—':t.reports.length)+' laporan terkait</small></div><button data-target="'+esc(targetDisplayKey(t))+'">Lihat laporan</button></article>').join('');
+$('targetList').innerHTML=!s.items.length?'<div class="empty"><strong>Belum ada item target.</strong><br>Atur daftar part dan mesin yang harus dilaporkan pada shift ini.</div>':s.items.map(t=>'<article class="card targetrow"><div><span class="small">'+esc(t.line.replace('_',' ')+' · '+shiftLabel(t.workspaceShift))+'</span><br><strong>'+esc(t.machine)+'</strong></div><div><span class="small">Part / proses</span><br><strong>'+esc(t.part)+'</strong>'+qtySummary(t)+'</div><div><span class="badge '+(t.reports.length?'good':'warn')+'">'+(data.reportsLoaded===false?'Hasil sedang dimuat…':t.reports.length?'Sudah dilaporkan':'Belum dilaporkan')+'</span><br><small class="small">'+(data.reportsLoaded===false?'—':t.reports.length)+' laporan terkait</small></div><div class="target-actions"><button type="button" class="primary" data-target-edit="'+esc(targetDisplayKey(t))+'">Revisi / hapus</button><button type="button" data-target="'+esc(targetDisplayKey(t))+'">Lihat laporan</button></div></article>').join('');
 $('targetList').querySelectorAll('[data-target]').forEach(b=>b.onclick=()=>{showTab('reports');const item=s.items.find(t=>targetDisplayKey(t)===b.dataset.target);const changed=$('line').value!==item.line||$('shift').value!==item.workspaceShift;$('line').value=item.line;$('shift').value=item.workspaceShift;selected.clear();$('status').value='';if(changed){load();return;}render();$('reportList').querySelector('[data-report="'+CSS.escape(item.reports[0]?.id||'')+'"]')?.scrollIntoView({block:'center',behavior:'smooth'});});
+$('targetList').querySelectorAll('[data-target-edit]').forEach(button=>{
+ button.onclick=()=>openTargets(s.items.find(item=>targetDisplayKey(item)===button.dataset.targetEdit));
+});
 addOperatorTargetLinks(s.items);renderReports();renderPending();renderTelegram();$('editTargets').disabled=!contextMatches();document.dispatchEvent(new Event('portal:ready'));}
 function renderReports(){const rows=filteredReports();$('reportList').className=reportView==='card'?'reportsgrid':'reportlist';$('reportList').innerHTML=rows.length?rows.map(r=>'<article class="card" data-report="'+esc(r.id)+'"><div class="reporthead">'+(eligible(r)?'<label class="check"><input data-select="'+esc(r.id)+'" type="checkbox" '+(selected.has(r.id)?'checked':'')+'>Pilih</label>':'<span class="badge '+(r.state==='PUBLISHED'?'good':r.validation?'warn':'')+'">'+esc(pendingReport(r.id)?pendingLabel(r.id):names[r.state]||r.state)+'</span>')+'<span class="small">'+esc(r.line.replace('_',' ')+' · '+shiftLabel(r.workspaceShift))+'</span></div><div class="reportidentity"><div class="part">'+esc(r.part)+'</div><p class="small">'+esc(r.machine)+'<br>'+esc(r.operator)+'</p></div><div class="reportmeta"><span>OK <strong>'+esc(r.input.ok)+'</strong></span><span>Repair '+esc(r.input.repair)+'</span><span>Reject '+esc(r.input.reject)+'</span></div>'+(r.validation?'<p class="reportwarning badge warn">'+esc(r.validation)+'</p>':'')+'<p class="reportstate small'+(!eligible(r)&&!r.viewOnly?' repeatstate':'')+'">'+esc(r.viewOnly?r.productionState:names[r.state])+'</p><small class="small" style="overflow-wrap:anywhere">'+esc(r.id)+'</small><div class="actions">'+(eligible(r)?'<button class="primary" data-approve="'+esc(r.id)+'">Setujui</button>':'')+(r.line==='LINE_99'&&r.state==='PUBLISHED'&&data.revisionEnabled?'<button data-web-revision="'+esc(r.id)+'">Uji revisi web</button>':'')+'<button data-detail="'+esc(r.id)+'">'+((r.reviewSource==='LINE4_WEB'?!(eligible(r)&&r.reviewFields):r.viewOnly&&!data.revisionEnabled)?'Periksa laporan':'Periksa / revisi')+'</button></div></article>').join(''):'<div class="empty">'+(data?.reportsLoaded===false?'Laporan sedang dimuat…':'Belum ada laporan untuk filter ini.')+'</div>';
 $('reportList').querySelectorAll('[data-web-revision]').forEach(b=>b.onclick=()=>openWebRevision(b.dataset.webRevision));$('reportList').querySelectorAll('[data-approve]').forEach(b=>b.onclick=()=>approveCard(b.dataset.approve));$('reportList').querySelectorAll('[data-select]').forEach(b=>b.onchange=()=>{b.checked?selected.add(b.dataset.select):selected.delete(b.dataset.select);syncSelection();});$('reportList').querySelectorAll('[data-detail]').forEach(b=>b.onclick=()=>openDetail(b.dataset.detail));syncSelection();}
@@ -124,26 +127,63 @@ else{operationCommands(op).forEach(c=>{selected.delete(c.id);window.PortalDraft?
 notify(op.error?'Sebagian permintaan perlu diperiksa: '+op.error:'Tersimpan. '+(op.body.action==='target'?'Target shift diperbarui.':'Keputusan/input diterima untuk diproses. Tekan Muat ulang untuk melihat penerapan dan status TF Slip.')+' Pembaruan Telegram berjalan terpisah.'+(op.body.action==='decideBatch'&&selected.size?' Sisa terpilih pada filter ini: '+filteredReports().filter(r=>eligible(r)&&selected.has(r.id)).length+'.':''),!!op.error,false);
 }catch(e){op.state=e.confirmed?'rejected':'unknown';op.error=e.message;notify(e.message+'\nID: '+op.id+'\nPermintaan lain tetap dapat digunakan.',true,false);}finally{saveOperations();render();}}
 function showTab(name){tab=name;const u=new URL(location.href);u.searchParams.set('tab',name);history.replaceState(null,'',u.pathname+u.search);if(name==='telegram'&&data?.reportLine)load();document.querySelectorAll('.tab').forEach(e=>e.hidden=e.id!==name);document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===name));document.dispatchEvent(new Event('portal:ready'));}
-function openTargets(){if(targetPreparing){notify('Target sedang diperiksa. Tunggu hasil pengiriman.',false,false);return;}if(!contextMatches())return;try{actor();}catch(e){notify(e.message,true);return;}$('targetLine').value=$('line').value;const shiftSelect=$('targetShift');for(const option of shiftSelect.options)option.disabled=!!option.value&&data.shift!=='all'&&option.value!==data.shift;shiftSelect.value=data.shift==='all'?'':data.shift;setTargetLine();$('targetContext').textContent=data.date;restoreTargetDraft();$('targetDialog').showModal();}
+function openTargets(item){
+ if(targetPreparing){notify('Target sedang diperiksa. Tunggu hasil pengiriman.',false,false);return;}
+ if(!contextMatches())return;
+ try{actor();}catch(e){notify(e.message,true);$('leader').focus();return;}
+ $('targetLine').value=item?.line||$('line').value;
+ const shiftSelect=$('targetShift');
+ for(const option of shiftSelect.options)option.disabled=!!option.value&&data.shift!=='all'&&option.value!==data.shift;
+ shiftSelect.value=item?.workspaceShift||(data.shift==='all'?'':data.shift);
+ $('targetDialog').querySelector('.feedback')?.remove();
+ setTargetLine();
+ restoreTargetDraft();
+ $('targetDialog').showModal();
+ if(item){
+  const row=[...$('draftList').children].find(row=>row.dataset.targetItem===core.key(item));
+  (row?.querySelector('[data-qty]')||$('targetReason')).focus();
+ }
+}
 const removedTargetParts=new Map();
 function restorePart(m){return removedTargetParts.get(core.key(m))||{line:m.line,machine:m.machine,part:m.part};}
-function setTargetLine(){removedTargetParts.clear();const line=$('targetLine').value,shift=$('targetShift').value,t=data.targets.find(t=>t.line===line&&t.workspaceShift===shift);draft=t?t.items.map(x=>({...x})):[];targetVersion=t?.version||0;$('targetReason').value='';$('zeroConfirm').checked=!!t&&!t.items.length;$('partSearch').value='';$('targetMachine').innerHTML=[...new Set(data.catalog.filter(m=>m.line===line).map(m=>m.machine))].map(m=>'<option>'+esc(m)+'</option>').join('');renderParts();renderDraft();}
+function setTargetLine(){
+ removedTargetParts.clear();
+ const line=$('targetLine').value,shift=$('targetShift').value;
+ const target=data.targets.find(t=>t.line===line&&t.workspaceShift===shift);
+ draft=target?target.items.map(item=>({...item})):[];
+ targetVersion=target?.version||0;
+ $('targetTitle').textContent=targetVersion?'Revisi target shift':'Atur target shift';
+ $('targetContext').textContent=[data.date,shift&&shiftLabel(shift),line&&line.replace('_',' ')].filter(Boolean).join(' · ');
+ $('targetReason').value='';
+ $('targetReason').required=Boolean(targetVersion);
+ $('zeroConfirm').checked=!!target&&!target.items.length;
+ $('targetParts').open=!targetVersion;
+ $('partSearch').value='';
+ $('targetMachine').innerHTML=[...new Set(data.catalog.filter(m=>m.line===line).map(m=>m.machine))].map(m=>'<option>'+esc(m)+'</option>').join('');
+ renderParts();
+ renderDraft();
+}
 function partMatches(){const line=$('targetLine').value,machine=$('targetMachine').value,q=$('partSearch').value.toLowerCase();return data.catalog.filter(m=>m.line===line&&m.machine===machine&&m.part.toLowerCase().includes(q));}
 function renderParts(){$('partOptions').innerHTML=partMatches().map(m=>'<label class="check"><input type="checkbox" data-part="'+esc(core.key(m))+'" '+(draft.some(d=>core.key(d)===core.key(m))?'checked':'')+'>'+esc(m.part)+'</label>').join('')||'<p class="small">Tidak ada part pada hasil pencarian.</p>';$('partOptions').querySelectorAll('[data-part]').forEach(b=>b.onchange=()=>{const m=data.catalog.find(m=>core.key(m)===b.dataset.part);const previous=draft.find(d=>core.key(d)===b.dataset.part);if(previous)removedTargetParts.set(b.dataset.part,previous);draft=draft.filter(d=>core.key(d)!==b.dataset.part);if(b.checked)draft.push(restorePart(m));renderDraft();});}
 function renderDraft(){
  const root=$('draftList');
- $('draftCount').textContent=draft.length+' item dipilih';
+ $('draftCount').textContent=draft.length+' item target';
+ $('clearTargetItems').hidden=!targetVersion||draft.length<2;
+ $('zeroConfirmation').hidden=draft.length>0;
+ if(draft.length)$('zeroConfirm').checked=false;
+ $('saveTarget').textContent=targetVersion?'Simpan perubahan':'Simpan target';
  root.replaceChildren();
  draft.forEach((item,index)=>{
   const master=data.catalog.find(m=>core.key(m)===core.key(item));
   const ct=master?.ct||null;
   const row=document.createElement('div');row.className='draftchip planrow';
+  row.dataset.targetItem=core.key(item);
   row.innerHTML='<span><strong>'+esc(item.part)+'</strong><br>'+esc(item.machine)+'<br><small>'+
    (ct?'CT '+esc(ct)+' detik/pcs · Master '+esc(master.ctDate):'CT belum tersedia · isi qty manual')+
    (master?'':' · Pilih ulang part di master terbaru')+'</small></span>'+
    '<label>Jam efektif<input type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="Mis. 1,5" data-hours></label>'+
    '<label>Target OK (pcs)<input type="number" min="1" max="999999999" step="1" inputmode="numeric" required data-qty></label>'+
-   '<button type="button" data-remove aria-label="Hapus '+esc(item.part)+'">×</button>'+
+   '<button type="button" class="target-remove" data-remove aria-label="Hapus '+esc(item.part)+'">Hapus part</button>'+
    '<div class="calculation"><small data-info></small> <button type="button" data-auto>Gunakan hasil CT</button></div>';
   const hours=row.querySelector('[data-hours]'),qty=row.querySelector('[data-qty]'),auto=row.querySelector('[data-auto]');
   hours.value=item.hours??'';qty.value=item.targetQty??'';
@@ -157,7 +197,14 @@ function renderDraft(){
   hours.oninput=()=>{item.hours=hours.value===''?null:Number(hours.value);if(ct&&!item.manualQty)calculate();refreshInfo();};
   qty.oninput=()=>{item.targetQty=qty.value===''?null:Number(qty.value);item.manualQty=true;item.plannedCt=ct;refreshInfo();};
   auto.onclick=()=>{calculate();refreshInfo();saveTargetDraft();};
-  row.querySelector('[data-remove]').onclick=()=>{removedTargetParts.set(core.key(item),item);draft.splice(index,1);renderDraft();renderParts();};
+  row.querySelector('[data-remove]').onclick=()=>{
+   removedTargetParts.set(core.key(item),item);
+   draft.splice(index,1);
+   renderDraft();
+   renderParts();
+   saveTargetDraft();
+   (root.children[Math.min(index,draft.length-1)]?.querySelector('[data-remove]')||$('zeroConfirm')).focus();
+  };
   refreshInfo();root.append(row);
  });
 }
@@ -258,7 +305,16 @@ viewButtons.forEach(button=>button.onclick=()=>{
  renderReports();
 });
 $('selectAll').onchange=()=>{filteredReports().filter(eligible).forEach(r=>$('selectAll').checked?selected.add(r.id):selected.delete(r.id));renderReports();};$('bulk').onclick=()=>{const rows=filteredReports().filter(r=>eligible(r)&&selected.has(r.id)).slice(0,20);if(!rows.length)return;const remaining=filteredReports().filter(r=>eligible(r)&&selected.has(r.id)).length-rows.length;if(!confirm('Setujui '+rows.length+' laporan terpilih? '+(remaining?remaining+' laporan lainnya tetap terpilih. ':'')+'Laporan yang disetujui akan diproses ke TF Slip.'))return;startOperation('decideBatch',{commands:rows.map(r=>({id:r.id,requestId:crypto.randomUUID(),expectedHash:r.hash,decision:'approve',reason:'Pemeriksaan massal leader melalui dashboard web'}))});};
-$('editTargets').onclick=openTargets;for(const id of ['targetLine','targetShift'])$(id).onchange=()=>{setTargetLine();restoreTargetDraft();};$('targetMachine').onchange=renderParts;$('partSearch').oninput=renderParts;$('addAll').onclick=()=>{for(const m of partMatches())if(!draft.some(d=>core.key(d)===core.key(m)))draft.push(restorePart(m));renderDraft();renderParts();};
+$('editTargets').onclick=()=>openTargets();
+$('clearTargetItems').onclick=()=>{
+ for(const item of draft)removedTargetParts.set(core.key(item),item);
+ draft=[];
+ renderDraft();
+ renderParts();
+ saveTargetDraft();
+ $('zeroConfirm').focus();
+};
+for(const id of ['targetLine','targetShift'])$(id).onchange=()=>{setTargetLine();restoreTargetDraft();};$('targetMachine').onchange=renderParts;$('partSearch').oninput=renderParts;$('addAll').onclick=()=>{for(const m of partMatches())if(!draft.some(d=>core.key(d)===core.key(m)))draft.push(restorePart(m));renderDraft();renderParts();};
 $('targetForm').onsubmit=e=>{e.preventDefault();if(!$('targetForm').reportValidity())return;if(draft.some(m=>!Number.isSafeInteger(m.targetQty)||m.targetQty<1||m.targetQty>999999999)){notify('Isi target OK (pcs) untuk setiap item yang dipilih.',true);return;}if(!draft.length&&!$('zeroConfirm').checked){notify('Konfirmasikan jika line ini tidak memiliki target.',true);return;}const reason=$('targetReason').value.trim();if(targetVersion&&reason.length<5){notify('Isi alasan perubahan minimal 5 karakter.',true);return;}submitTarget({date:data.date,shift:$('targetShift').value,line:$('targetLine').value,expectedVersion:targetVersion,items:draft.map(x=>({...x})),reason});};
 $('approve').onclick=()=>decide('approve');$('hold').onclick=()=>decide('hold');$('revisionForm').onsubmit=e=>{e.preventDefault();decide('revise');};
 operations.forEach(op=>{if(op.state==='sending')op.state='unknown';});if(['waiting','attention','PUBLISHED'].includes(params.get('status')))$('status').value=params.get('status');showTab(['targets','reports','telegram'].includes(params.get('tab'))?params.get('tab'):'targets');renderPending();render();load();
@@ -279,13 +335,20 @@ async function submitTarget(payload){
    data.targets=data.targets.filter(t=>t.workspaceShift!==payload.shift||t.line!==payload.line).concat(fresh.targets.filter(t=>t.line===payload.line).map(t=>({...t,workspaceShift:payload.shift})));
    render();
   }
-  const version=fresh.targets.find(t=>t.line===payload.line)?.version||0;
+  const savedTarget=fresh.targets.find(t=>t.line===payload.line);
+  const version=savedTarget?.version||0;
   if(version!==payload.expectedVersion)throw Error(messages.VERSION_CHANGED_REFRESH+' Draf belum dikirim.');
   const selection=core.targetSelection(payload.items,fresh.catalog,payload.line);
   if(selection.invalid.length)throw Error('Target belum dikirim. Item tidak sesuai master: '+selection.invalid.map(m=>m.machine+' · '+m.part).join('; ')+'. Buka Atur target untuk memilih ulang. Draf dan qty tetap tersimpan.');
+  const savedItems=new Map((savedTarget?.items||[]).map(item=>[core.key(item),item]));
   for(const item of selection.items){
-   if(item.hours&&!item.manualQty && core.planQty(item.hours,fresh.catalog.find(m=>core.key(m)===core.key(item))?.ct)!==item.targetQty){
-    if(contextMatches())data.catalog=fresh.catalog;
+   if(!item.hours||item.manualQty)continue;
+   const key=core.key(item),previous=savedItems.get(key);
+   const unchanged=previous&&!previous.manualQty&&previous.hours===item.hours&&previous.targetQty===item.targetQty&&previous.plannedCt===item.plannedCt;
+   if(!unchanged&&core.planQty(item.hours,fresh.catalog.find(m=>core.key(m)===key)?.ct)!==item.targetQty){
+    if(contextMatches()&&data.date===payload.date&&(!data.reportLine||data.reportLine===payload.line)){
+     data.catalog=data.catalog.filter(m=>m.line!==payload.line).concat(fresh.catalog.filter(m=>m.line===payload.line));
+    }
     throw Error('CT master berubah. Buka kembali Atur target dan periksa qty sebelum menyimpan.');
    }
   }
