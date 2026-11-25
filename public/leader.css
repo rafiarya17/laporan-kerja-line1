@@ -155,6 +155,10 @@ dialog form > .actions { position: sticky; bottom: calc(-1 * var(--dialog-pad));
 #pendingPanel { margin-top: 24px; }
 .qtysummary { display: flex; flex-direction: column; gap: 3px; font-size: 12px; line-height: 1.6; }
 .qtysummary strong { font-size: 13px; }
+@container (max-width: 689px) {
+  .qtysummary { flex-flow: row wrap; column-gap: 12px; }
+  .qtysummary small { flex-basis: 100%; }
+}
 [hidden] { display: none !important; }
 @media (max-width: 1050px) {
   .context { grid-template-columns: repeat(3,minmax(0,1fr)); }

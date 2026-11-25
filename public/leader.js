@@ -54,7 +54,18 @@ function needsCurrentPart(r){
 function eligible(r){return !needsCurrentPart(r)&&contextMatches()&&data.reportsLoaded!==false&&!r.viewOnly&&['WAITING_LEADER','HELD'].includes(r.state)&&!r.validation&&!!r.hash&&!pendingReport(r.id);}
 function filteredReports(){const rows=view().reports,s=$('status').value;return rows.filter(r=>!s||(s==='waiting'?['RECEIVED','WAITING_LEADER'].includes(r.state):s==='attention'?!!r.validation||r.state==='HELD':r.state===s));}
 function summaryCards(s){const values=[['Target laporan',s.expected,'item part–mesin'],['Sudah dilaporkan',s.received,'item sudah ada laporan'],['Belum dilaporkan',s.missing,'item belum ada laporan'],['Submission masuk',s.submissions,'laporan berbeda']];$('stats').innerHTML=values.map(v=>'<div><span>'+v[0]+'</span><b>'+v[1]+'</b><small>'+v[2]+'</small></div>').join('');}
-function qtySummary(t){const hours=t.hours?'<small>'+esc(t.hours.toLocaleString('id-ID'))+' jam efektif'+(t.manualQty?' · Qty manual':'')+'</small>':'';if(data?.reportsLoaded===false)return '<div class="qtysummary">'+hours+'<span>Target OK: <strong>'+esc(t.targetQty??'Belum diisi')+' pcs</strong></span><small>Hasil produksi sedang dimuat…</small></div>';return '<div class="qtysummary">'+hours+'<span>Target OK: <strong>'+ (t.targetQty===null?'Belum diisi':esc(t.targetQty.toLocaleString('id-ID'))+' pcs')+'</strong></span><span>OK dilaporkan: <strong>'+esc(t.actualOk.toLocaleString('id-ID'))+' pcs</strong></span><small class="small">'+(t.targetQty===null?'Target lama belum memiliki qty':t.qtyReached?'Qty tercapai'+(t.actualOk>t.targetQty?' · lebih '+esc((t.actualOk-t.targetQty).toLocaleString('id-ID'))+' pcs':''):'Kurang '+esc(t.shortfall.toLocaleString('id-ID'))+' pcs')+'</small></div>'; }
+function qtySummary(t){
+ const pcs=n=>esc(n.toLocaleString('id-ID'))+' pcs';
+ const hours=t.hours?`<small class="small">${esc(t.hours.toLocaleString('id-ID'))} jam efektif${t.manualQty?' · Qty manual':''}</small>`:'';
+ const target=`<span>Target OK: <strong>${t.targetQty===null?'Belum diisi':pcs(t.targetQty)}</strong></span>`;
+ if(data.reportsLoaded===false)return `<div class="qtysummary">${hours}${target}<small class="small">Hasil produksi sedang dimuat…</small></div>`;
+ const actual=`<span>OK dilaporkan: <strong>${pcs(t.actualOk)}</strong></span>`;
+ let result='';
+ if(t.targetQty!==null&&t.reports.length){
+  result=t.qtyReached?'Qty tercapai'+(t.actualOk>t.targetQty?' · lebih '+pcs(t.actualOk-t.targetQty):''):'Kurang '+pcs(t.shortfall);
+ }
+ return `<div class="qtysummary">${hours}${target}${actual}${result?`<small class="small">${result}</small>`:''}</div>`;
+}
 function targetCard(t){
  const key=esc(targetDisplayKey(t));
  const loadingResults=data.reportsLoaded===false;
