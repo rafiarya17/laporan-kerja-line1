@@ -1,3 +1,4 @@
+import {readCardData} from './telegram-card-cache';
 import {sqlDatabase} from './sql-intake';
 
 type Part = {line:string; machine:string; part:string; targetQty?:number; ct?:number; ctDate?:string};
@@ -5,13 +6,20 @@ type Plan = Part & {hours?:number; plannedCt?:number|null; manualQty?:boolean};
 type Target = {date:string; shift:string; line:string; version:number; items:Plan[]};
 const key = (item:Part) => JSON.stringify([item.line,item.machine,item.part]);
 
-export async function enrichPlanning(data:{date:string;catalog:Part[];targets:Target[]}) {
+async function planningMetadata(date: string) {
   const sql=sqlDatabase();
   const [catalog,history]=await Promise.all([
     sql`SELECT source_date::text AS day, rates FROM leader_cycle_catalog WHERE singleton`,
-    sql`SELECT shift,line,version,items FROM leader_target_hours WHERE production_date=${data.date}::date`,
+    sql`SELECT shift,line,version,items FROM leader_target_hours WHERE production_date=${date}::date`,
   ]);
-  const rates=catalog[0];
+  return {rates:catalog[0] ?? null,history};
+}
+
+export async function enrichPlanning(data:{date:string;catalog:Part[];targets:Target[]}, cardShift?: string) {
+  const load = () => planningMetadata(data.date);
+  const {rates,history} = cardShift
+    ? (await readCardData('planning',data.date,cardShift,load)).data
+    : await load();
   for(const item of data.catalog){
     const seconds=rates?.rates[key(item)];
     if(Number.isFinite(seconds)&&seconds>0){item.ct=seconds;item.ctDate=rates.day;}

@@ -1,3 +1,4 @@
+import {invalidateCardData,isTelegramCardPoll,readCardData} from '@/lib/telegram-card-cache';
 import {targetProgress} from '@/lib/target-progress';
 import {reviseApproved} from '@/lib/web-report-revision';
 import {drainRevisionDelivery} from '@/lib/revision-delivery';
@@ -65,6 +66,11 @@ export async function POST(r:Request){
   if(!validWebReviewScope({date,shift:shift==='all'?'1':shift,line}))return reply({ok:false,error:'INVALID_REVIEW_FILTER'},400);
   if(!pilotEnabled)return reply({ok:false,error:'WEB_REVIEW_UNAVAILABLE'},503);
   const start=performance.now();
+  if(line==='' && isTelegramCardPoll(r,shift)){
+   const cached=await readCardData('progress',date,shift,()=>targetProgress(date,shift,line));
+   h.set('X-Card-Data-Time',String(cached.loadedAt));
+   return reply({ok:true,data:cached.data});
+  }
   const data=await targetProgress(date,shift,line);
   h.set('Server-Timing','neon;dur='+(performance.now()-start).toFixed(1));
   return reply({ok:true,data});
@@ -74,6 +80,11 @@ export async function POST(r:Request){
   if(!validWebReviewScope(scope))return reply({ok:false,error:'INVALID_REVIEW_FILTER'},400);
   if(!pilotEnabled)return reply({ok:false,error:'WEB_REVIEW_UNAVAILABLE'},503);
   const start=performance.now();
+  if(scope.line==='LINE_99' && isTelegramCardPoll(r,scope.shift)){
+   const cached=await readCardData('line99',scope.date,scope.shift,()=>webReviewWorkspace(scope.date,scope.shift,scope.line));
+   h.set('X-Card-Data-Time',String(cached.loadedAt));
+   return reply({ok:true,data:cached.data});
+  }
   const data=await webReviewWorkspace(scope.date,scope.shift,scope.line);
   h.set('Server-Timing','neon;dur='+(performance.now()-start).toFixed(1));
   return reply({ok:true,data});
@@ -140,10 +151,11 @@ export async function POST(r:Request){
   workspace.data.approvalLines=[...new Set([...(workspace.data.approvalLines||[]),...productionReviewLines])];
  }
  if(workspace.ok && body.action==='snapshot' && process.env.DATABASE_URL){
-  try { await enrichPlanning(workspace.data); } catch { console.warn('LEADER_PLANNING_READ_UNAVAILABLE'); }
+  try { await enrichPlanning(workspace.data, body.phase==='targets' && !body.line && isTelegramCardPoll(r,body.shift) ? body.shift : undefined); } catch { console.warn('LEADER_PLANNING_READ_UNAVAILABLE'); }
  }
  if(workspace.ok && body.action==='target' && Number.isInteger(workspace.result?.version)){
-  await savePlanning(body.payload,workspace.result.version);
+  try { await savePlanning(body.payload,workspace.result.version); }
+  finally { invalidateCardData(body.payload.date,body.payload.shift); }
  }
  return reply(workspace,workspace.ok?200:409);
  }catch(error){console.warn('LEADER_GATEWAY_ERROR',error instanceof Error?error.message:'UNKNOWN');return reply({ok:false,error:'LEADER_UNCONFIRMED_RETRY_SAME_ID'},503);}

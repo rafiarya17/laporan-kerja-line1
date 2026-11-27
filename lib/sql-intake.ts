@@ -1,3 +1,4 @@
+import {invalidateCardData} from './telegram-card-cache';
 import { neon } from '@neondatabase/serverless';
 import { EARLY_PRODUCTION_MINUTES, validateSubmission, type Master, type Submission, type Receipt } from './lkh';
 import { callReceiver } from './receiver';
@@ -58,5 +59,6 @@ export async function submitSqlReport(payload: Submission) {
       CASE WHEN ${needsLeader} THEN 'infinity'::timestamptz ELSE now() END)
     ON CONFLICT(id) DO UPDATE SET id=excluded.id WHERE lkh_reports.payload=excluded.payload
     RETURNING received_at,leader_review IS NOT NULL AND leader_review->>'approvedAt' IS NULL AS awaiting_leader`;
+  if (saved && needsLeader) invalidateCardData(payload.form.tanggal, payload.form.shift);
   return saved ? accepted(saved) : conflict;
 }

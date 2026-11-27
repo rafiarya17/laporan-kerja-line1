@@ -1,3 +1,4 @@
+import {invalidateCardData} from './telegram-card-cache';
 import { sqlDatabase } from './sql-intake';
 import { validateSubmission, EARLY_PRODUCTION_MINUTES, type Submission } from './lkh';
 
@@ -50,5 +51,6 @@ export async function reviseApproved(cmd:Revision,leader:unknown) {
   ) INSERT INTO lkh_report_revisions(request_id,report_id,previous_version,actor,reason,previous_fields,fields,mirror_state)
     SELECT ${cmd.requestId}::uuid,id,${cmd.version}::uuid,${actor},${reason},${before}::jsonb,${edits}::jsonb,
       CASE WHEN leader_review->>'testOnly'='true' THEN 'TEST_ONLY' ELSE 'PENDING' END FROM changed RETURNING report_id`;
+  if (saved) invalidateCardData(payload.form.tanggal, payload.form.shift);
   return saved ? success : await existing() || reject('VERSION_CHANGED_REFRESH');
 }

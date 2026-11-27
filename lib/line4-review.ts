@@ -1,3 +1,4 @@
+import {invalidateCardData} from './telegram-card-cache';
 import {reviewCt} from './review-ct';
 import { EARLY_PRODUCTION_MINUTES, processInterval, validateSubmission, webSubmissionTiming, type Master, type Submission } from './lkh';
 import { intakeMaster, sqlDatabase } from './sql-intake';
@@ -56,7 +57,8 @@ export async function approveLine4(command: Command, leaderValue: unknown) {
     WHERE id=${id} AND (payload->>'line' ~ '^LINE_[1-8]$' OR (payload->>'line'='LINE_99' AND leader_review->>'testOnly'='true')) AND leader_review IS NOT NULL
       AND leader_review->>'approvedAt' IS NULL AND delivery_state='PENDING'
       AND encode(sha256(convert_to(payload::text || COALESCE(leader_review->>'deliveryPart',''),'UTF8')),'hex')=${expectedHash}
-    RETURNING id`;
+    RETURNING id, payload->'form'->>'tanggal' AS date, payload->'form'->>'shift' AS shift`;
+  if (released) invalidateCardData(released.date, released.shift);
   if (!released) {
     const [existing] = await sql`SELECT leader_review AS review,
       encode(sha256(convert_to(payload::text || COALESCE(leader_review->>'deliveryPart',''),'UTF8')),'hex') AS hash
@@ -87,6 +89,7 @@ export async function remapReviewPart(id: string, hash: string, part: string, ac
     AND encode(sha256(convert_to(payload::text || COALESCE(leader_review->>'deliveryPart',''),'UTF8')),'hex')=${hash}
     AND ((delivery_state='PENDING' AND leader_review->>'approvedAt' IS NULL)
       OR (delivery_state='NEEDS_REVIEW' AND last_error='INVALID_MASTER_SELECTION')) RETURNING id`;
+  if (updated) invalidateCardData(row.payload.form.tanggal, row.payload.form.shift);
   return Boolean(updated);
 }
 
