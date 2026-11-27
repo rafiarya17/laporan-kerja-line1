@@ -2,6 +2,8 @@
 /* eslint-disable react-hooks/set-state-in-effect -- Restore the durable browser outbox after hydration and report storage failures. */
 
 import { useState, useMemo, useEffect, useRef } from "react";
+import { OperatorAccess } from "./OperatorAccess";
+import {includeReporter, type OperatorActor} from "@/lib/operator-directory";
 import Image from "next/image";
 import MAPPING_FORM from "../constants/formMapping.json";
 
@@ -9,9 +11,9 @@ import { EARLY_PRODUCTION_MINUTES, initialForm, productionTimeError, resetForCon
 import type { Master, Submission, Receipt } from "@/lib/lkh";
 
 const SNAPSHOT = MAPPING_FORM as Master;
-const DRAFT_KEY = "berlindo-lkh-draft-v2";
-const PENDING_KEY = "berlindo-lkh-pending-v2";
-const RECEIPT_KEY = "berlindo-lkh-receipt-v2";
+const LEGACY_DRAFT = "berlindo-lkh-draft-v2";
+const LEGACY_PENDING = "berlindo-lkh-pending-v2";
+const LEGACY_RECEIPT = "berlindo-lkh-receipt-v2";
 
 // HELPERS
 // ============================================================
@@ -34,9 +36,14 @@ const formatDuration = (start: string, end: string): string | null => {
 };
 
 export default function LaporanKerjaForm() {
+  return <OperatorAccess>{(actor,actions)=><ReportForm key={actor?.id||"legacy"} actor={actor} {...actions}/>}</OperatorAccess>;
+}
+function ReportForm({actor,finish,switchUser,refresh}:{actor:OperatorActor|null;finish:(message:string)=>void;switchUser:()=>Promise<void>;refresh:()=>Promise<void>}) {
+  const suffix=actor ? ":"+actor.id : "";
+  const DRAFT_KEY=LEGACY_DRAFT+suffix, PENDING_KEY=LEGACY_PENDING+suffix, RECEIPT_KEY=LEGACY_RECEIPT+suffix;
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submissionSlow, setSubmissionSlow] = useState(false);
-  const [lineSelected, setLineSelected] = useState<string>("LINE_1");
+  const [lineSelected, setLineSelected] = useState<string>(actor?.lines[0]||"LINE_1");
   const [formData, setFormData] = useState(initialForm);
   const [toast, setToast] = useState<{ type: "success" | "error"; msg: string } | null>(null);
 
@@ -48,6 +55,16 @@ export default function LaporanKerjaForm() {
   const [draftAvailable, setDraftAvailable] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const inFlight = useRef(false);
+
+  useEffect(()=>{
+    if(!actor || isSubmitting)return;
+    let timer:number;
+    const reset=()=>{window.clearTimeout(timer);timer=window.setTimeout(()=>{void switchUser();},5*60000);};
+    const events=["pointerdown","keydown","input","scroll"];
+    events.forEach(event=>window.addEventListener(event,reset,{passive:true}));
+    reset();
+    return ()=>{window.clearTimeout(timer);events.forEach(event=>window.removeEventListener(event,reset));};
+  },[actor,isSubmitting,switchUser]);
 
   const [masterAttempt, setMasterAttempt] = useState(0);
   useEffect(() => {
@@ -69,6 +86,18 @@ export default function LaporanKerjaForm() {
 
   useEffect(() => {
     try {
+      // Keep the original report ID across rollout and rollback on this device.
+      const handoff=sessionStorage.getItem("lkh-pending-owner");
+      const alternate=actor ? LEGACY_PENDING : handoff ? LEGACY_PENDING+":"+handoff : "";
+      if(alternate && !localStorage.getItem(PENDING_KEY)){
+        const old=localStorage.getItem(alternate);
+        if(old){
+          const saved=JSON.parse(old) as Submission;
+          if(!actor || saved.form?.operator[0]===actor.name || (saved.form?.operator[0]==="__other_option__" && saved.form.operatorLainnya.split(",")[0].trim()===actor.name)){
+            localStorage.setItem(PENDING_KEY,old);localStorage.removeItem(alternate);
+          }
+        }
+      }
       const savedPending = localStorage.getItem(PENDING_KEY);
       if (savedPending) {
         const p = JSON.parse(savedPending) as Submission;
@@ -106,6 +135,7 @@ export default function LaporanKerjaForm() {
   const listOperator = [...(currentConfig?.operators || [])].sort((a, b) =>
     Number(a === "__other_option__") - Number(b === "__other_option__") || a.localeCompare(b, "id", { sensitivity: "base", numeric: true })
   );
+  const actorManual=!!actor && !listOperator.includes(actor.name);
   const selectedMesinData = currentConfig?.mesin_part_mapping?.[formData.mesin];
   const listPart = [...(selectedMesinData?.options || [])].sort((a, b) => a.localeCompare(b, "id", { sensitivity: "base", numeric: true }));
 
@@ -163,7 +193,7 @@ export default function LaporanKerjaForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (inFlight.current || (!connection.ready && !pending) || !storageAvailable) return;
-    const payload: Submission = pending || {id: (lineSelected === "LINE_99" ? "LKH99-" : "LKH-") + crypto.randomUUID(), line: lineSelected, form: formData};
+    const payload: Submission = pending || {id: (lineSelected === "LINE_99" ? "LKH99-" : "LKH-") + crypto.randomUUID(), line: lineSelected, form: actor ? includeReporter(formData,actor.name,listOperator,lineSelected) : formData};
     const now = Date.now();
     const errors = pending ? [] : validateSubmission(payload, mapping, now, EARLY_PRODUCTION_MINUTES);
     if (errors.length) { setToast({type: "error", msg: errors.join(" ")}); window.scrollTo({top: 0, behavior: "smooth"}); return; }
@@ -175,7 +205,7 @@ export default function LaporanKerjaForm() {
         if (!window.confirm(message)) return;
       }
     }
-    try { localStorage.setItem(PENDING_KEY, JSON.stringify(payload)); }
+    try { localStorage.setItem(PENDING_KEY, JSON.stringify(payload)); if(actor)sessionStorage.setItem("lkh-pending-owner",actor.id); }
     catch { setStorageAvailable(false); setToast({type: "error", msg: "Aktifkan penyimpanan browser sebelum mengirim agar ID laporan aman saat koneksi terputus."}); return; }
     inFlight.current = true;
     setSubmissionSlow(false);
@@ -184,15 +214,18 @@ export default function LaporanKerjaForm() {
     setToast(null);
     const slowTimer = window.setTimeout(() => setSubmissionSlow(true), 10000);
     try {
-      const response = await fetch("/api/submissions", { method: "POST", headers: {"Content-Type": "application/json", "X-LKH-Retry": pending ? "1" : "0"}, body: JSON.stringify(payload), signal: AbortSignal.timeout(80000) });
+      const response = await fetch("/api/submissions", { method: "POST", headers: {"Content-Type": "application/json", "X-LKH-Retry": pending ? "1" : "0", ...(actor?{"X-LKH-Actor":actor.id}:{})}, body: JSON.stringify(payload), signal: AbortSignal.timeout(80000) });
       const result = await response.json().catch(() => { throw Error("Balasan penerima belum terbaca. Simpan ID laporan ini dan coba kirim ulang dengan ID yang sama."); });
       if (!response.ok || result.ok !== true || result.receipt?.id !== payload.id) {
+        if(response.status===401){await refresh();return;}
         if (result.clearPending === true) { localStorage.removeItem(PENDING_KEY); setPending(null); }
         throw Error(result.error || "Penerimaan belum dapat dikonfirmasi.");
       }
       // Persist the receipt before clearing the pending ID or the input.
       localStorage.setItem(RECEIPT_KEY, JSON.stringify(result.receipt));
       localStorage.removeItem(PENDING_KEY); localStorage.removeItem(DRAFT_KEY);
+      sessionStorage.removeItem("lkh-pending-owner");
+      if(actor){finish("Laporan "+payload.id+" tersimpan. Sesi "+actor.name+" selesai.");return;}
       setReceipt(result.receipt); setPending(null); setFormData(initialForm); setDraftAvailable(false);
       setToast({type: "success", msg: result.receipt.state === "SQL_SAVED" && result.receipt.mode === "test" ? "Data uji tersimpan di SQL. Uji ini belum meneruskan laporan ke leader atau TF Slip." : payload.line === "LINE_99" && result.receipt.awaitingLeader ? "Laporan uji tersimpan di Web App dan menunggu pemeriksaan leader Line 99." : result.receipt.awaitingLeader ? "Laporan produksi tersimpan dan menunggu persetujuan leader sebelum masuk TF Slip." : result.receipt.state === "SQL_SAVED" && payload.line === "LINE_99" ? "Laporan uji tersimpan dan akan muncul di antrean verifikasi Line 99." : result.receipt.state === "SQL_SAVED" ? "Laporan tersimpan di database SQL. Penerusan ke sistem leader dan TF Slip berjalan otomatis. Tidak perlu kirim ulang." : result.receipt.mode === "test" ? "Data uji tersimpan di tempat pengujian." : payload.line === "LINE_99" ? "Laporan uji tersimpan. Tunggu muncul di dashboard leader, lalu revisi atau setujui sebelum terbit di TF Slip." : "Laporan tersimpan dan masuk antrean. Belum berarti terbit di TF Slip."});
       window.scrollTo({top: 0, behavior: "smooth"});
@@ -208,7 +241,7 @@ export default function LaporanKerjaForm() {
   };
 
   // --- Progress step ---
-  const step1Done = !!(formData.tanggal && formData.shift && formData.mesin && formData.operator.length);
+  const step1Done = !!(formData.tanggal && formData.shift && formData.mesin && (actor || formData.operator.length));
   const step2Done = isLine8 ? !!(formData.part && formData.jenisAktivitas) : !!formData.part;
   const step3Done = showDandori
     ? !!(formData.tanggalMulaiDandori && formData.jamMulaiDandori && formData.tanggalSelesaiDandori &&
@@ -249,6 +282,7 @@ export default function LaporanKerjaForm() {
 
   return (
     <div className="min-h-screen bg-slate-100 font-sans pb-52 sm:pb-36">
+      {actor && <div className="sticky top-0 z-50 border-b border-slate-300 bg-white shadow-sm"><div className="mx-auto flex max-w-4xl items-center justify-between gap-3 px-4 py-2 text-slate-900"><div><p className="text-sm text-slate-600">Pelapor aktif · {lineSelected.replace("_"," ")}</p><strong>{actor.name}</strong></div><button type="button" disabled={isSubmitting} onClick={switchUser} className="min-h-12 rounded-xl border border-slate-400 px-4 font-semibold">Ganti operator</button></div></div>}
       {/* HEADER */}
       <div className="bg-gradient-to-br from-blue-900 via-blue-800 to-blue-600 h-56 w-full absolute top-0 z-0 rounded-b-[2.5rem] shadow-xl"></div>
 
@@ -390,7 +424,7 @@ export default function LaporanKerjaForm() {
               {/* OPERATOR */}
               <div className="space-y-2 md:col-span-2 mt-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-sm font-semibold text-gray-700">Nama Operator <span className="text-red-500">*</span></label>
+                  <label className="text-sm font-semibold text-gray-700">{actor ? "Helper / operator tambahan (opsional)" : "Nama Operator *"}</label>
                   {formData.operator.length > 0 && (
                     <span className="text-xs font-semibold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-full">
                       {formData.operator.length} dipilih
@@ -398,7 +432,7 @@ export default function LaporanKerjaForm() {
                   )}
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {listOperator.map((op) => (
+                  {listOperator.filter(op=>!actor || (op!==actor.name && !(actorManual && !isPencucian && op==="__other_option__"))).map((op) => (
                     <label key={op} className="relative cursor-pointer">
                       <input type="checkbox" name="operator" value={op} onChange={() => handleOperatorToggle(op)} checked={formData.operator.includes(op)} className="peer sr-only" />
                       <div className="p-3 border border-gray-300 bg-white text-gray-800 rounded-xl text-center text-sm peer-checked:bg-blue-50 peer-checked:text-blue-800 peer-checked:border-blue-500 hover:border-blue-300 transition-all font-semibold shadow-sm min-h-[3rem] flex items-center justify-center">

@@ -34,7 +34,7 @@ export async function intakeMaster(maxAgeSeconds=60) {
   return {mapping: live.mapping as Master,version: live.version as string};
 }
 
-export async function submitSqlReport(payload: Submission) {
+export async function submitSqlReport(payload: Submission, actorId: string | null = null) {
   const sql = sqlDatabase();
   if (!payload || typeof payload.id !== 'string' || !/^LKH(?:99)?-[0-9a-f-]{36}$/i.test(payload.id)) {
     return {status:400,body:{ok:false,error:'ID laporan tidak valid.',clearPending:true}};
@@ -47,17 +47,17 @@ export async function submitSqlReport(payload: Submission) {
     awaitingLeader: row.awaiting_leader === true,
   } as Receipt}});
   // Resolve retries before validation: accepted data survives master/date changes.
-  const [known]=await sql`SELECT received_at,leader_review IS NOT NULL AND leader_review->>'approvedAt' IS NULL AS awaiting_leader,payload=${json}::jsonb AS matches FROM lkh_reports WHERE id=${payload.id}`;
-  if(known) return known.matches ? accepted(known) : conflict;
+  const [known]=await sql`SELECT ${actorId ? sql`submitted_by_operator_id,` : sql``}received_at,leader_review IS NOT NULL AND leader_review->>'approvedAt' IS NULL AS awaiting_leader,payload=${json}::jsonb AS matches FROM lkh_reports WHERE id=${payload.id}`;
+  if(known) return known.matches && (!actorId || !known.submitted_by_operator_id || known.submitted_by_operator_id===actorId) ? accepted(known) : conflict;
   const master=await intakeMaster(900);
   const errors=validateSubmission(payload,master.mapping,Date.now(),EARLY_PRODUCTION_MINUTES);
   if(errors.length) return {status:400,body:{ok:false,error:errors.join(' '),clearPending:true}};
   const needsLeader = process.env.VERCEL_ENV === 'production' && (requiresProductionReview(payload.line) || payload.line === 'LINE_99');
-  const [saved]=await sql`INSERT INTO lkh_reports(id,payload,master_version,leader_review,next_attempt_at)
-    VALUES(${payload.id},${json}::jsonb,${master.version},
+  const [saved]=await sql`INSERT INTO lkh_reports(id,payload,master_version,${actorId ? sql`submitted_by_operator_id,` : sql``}leader_review,next_attempt_at)
+    VALUES(${payload.id},${json}::jsonb,${master.version},${actorId ? sql`${actorId},` : sql``}
       CASE WHEN ${needsLeader && payload.line === 'LINE_99'} THEN '{"testOnly":true}'::jsonb WHEN ${needsLeader} THEN '{}'::jsonb END,
       CASE WHEN ${needsLeader} THEN 'infinity'::timestamptz ELSE now() END)
-    ON CONFLICT(id) DO UPDATE SET id=excluded.id WHERE lkh_reports.payload=excluded.payload
+    ON CONFLICT(id) DO UPDATE SET id=excluded.id WHERE lkh_reports.payload=excluded.payload ${actorId ? sql`AND (lkh_reports.submitted_by_operator_id IS NULL OR lkh_reports.submitted_by_operator_id=excluded.submitted_by_operator_id)` : sql``}
     RETURNING received_at,leader_review IS NOT NULL AND leader_review->>'approvedAt' IS NULL AS awaiting_leader`;
   if (saved && needsLeader) invalidateCardData(payload.form.tanggal, payload.form.shift);
   return saved ? accepted(saved) : conflict;
