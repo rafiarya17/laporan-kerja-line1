@@ -1,5 +1,5 @@
 import { portalPreview } from '@/lib/portal-preview';
-import { processInterval, type LkhForm } from '@/lib/lkh';
+import { processInterval, webSubmissionTiming, type LkhForm } from '@/lib/lkh';
 import { sqlDatabase, sqlSubmissionEnabled } from '@/lib/sql-intake';
 
 function validDate(value: string) {
@@ -20,23 +20,28 @@ export async function POST(request: Request) {
   }
   if (portalPreview()) {
     const sampleDates = date === to ? [date] : [date, to];
-    const rows = sampleDates.flatMap(day => Array.from({length: 28}, (_, index) => ({
-      id: 'CONTOH-' + day + '-' + index, date: day,
-      line: 'LINE_' + (1 + index % 8),
-      shift: index < 14 ? '1' : '2',
-      machine: 'Mesin contoh ' + (1 + index % 8),
-      part: 'PART-CONTOH-' + (101 + index),
-      revised: index % 5 === 0,
-      ok: 100 + index, repair: index % 3, reject: index % 2,
-      approved: day + (index < 14 ? 'T16:35:00+07:00' : 'T23:35:00+07:00'),
-    }))).filter(row => (!shift || row.shift === shift) && (!line || row.line === line));
+    const rows = sampleDates.flatMap(day => Array.from({length: 28}, (_, index) => {
+      const reportShift = index < 14 ? '1' : '2';
+      const hour = (reportShift === '1' ? 19 : 31) + (index % 3 === 0 ? 1 : 0);
+      const submittedAt = new Date(Date.parse(day + 'T00:00:00+07:00') + hour * 3600000);
+      return {
+        id: 'CONTOH-' + day + '-' + index, date: day,
+        line: 'LINE_' + (1 + index % 8), shift: reportShift,
+        machine: 'Mesin contoh ' + (1 + index % 8),
+        part: 'PART-CONTOH-' + (101 + index),
+        revised: index % 5 === 0,
+        ok: 100 + index, repair: index % 3, reject: index % 2,
+        ...webSubmissionTiming(submittedAt, {tanggal: day, shift: reportShift}),
+        approved: new Date(submittedAt.getTime() + 15 * 60000).toISOString(),
+      };
+    })).filter(row => (!shift || row.shift === shift) && (!line || row.line === line));
     return reply({preview:true, rows, pending:0, waitingEnd:0, invalid:0, asOf:new Date().toISOString()});
   }
   if (process.env.VERCEL_ENV !== 'production' || !sqlSubmissionEnabled('LINE_1')) return reply({error:'Data produksi belum tersedia.'},503);
   try {
     const start = performance.now();
     const sql = sqlDatabase();
-    const reports = await sql`SELECT id,payload->>'line' AS line,
+    const reports = await sql`SELECT id,received_at,payload->>'line' AS line,
       (payload->'form') || COALESCE(NULLIF(leader_review->'corrected','null'::jsonb),'{}'::jsonb) AS form,
       leader_review->>'approvedAt' AS approved, leader_review->>'deliveryPart' AS part,
       (leader_review->>'revisionId' IS NOT NULL OR NOT (payload->'form' @> COALESCE(NULLIF(leader_review->'corrected','null'::jsonb),'{}'::jsonb))
@@ -58,7 +63,8 @@ export async function POST(request: Request) {
       if (!interval || interval.end <= interval.start) { invalid++; continue; }
       if (interval.end > now) { waitingEnd++; continue; }
       rows.push({id:report.id,date:form.tanggal,line:report.line,shift:form.shift,machine:form.mesin,part:report.part || form.part,
-        ok:form.qtyOk,repair:form.qtyRepair,reject:form.qtyReject,approved:report.approved,revised:report.revised});
+        ok:form.qtyOk,repair:form.qtyRepair,reject:form.qtyReject,approved:report.approved,revised:report.revised,
+        ...webSubmissionTiming(report.received_at, form)});
     }
     return Response.json({rows,pending,waitingEnd,invalid,asOf:new Date(now).toISOString()},
       {headers:{...headers,'Server-Timing':'read;dur='+(performance.now()-start).toFixed(1)}});

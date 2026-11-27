@@ -1,6 +1,6 @@
 const {test} = require('node:test');
 const assert = require('node:assert/strict');
-const {initialForm, resetForContext, processInterval, submissionDateForConfirmation, validateSubmission} = require('../.test-build/lkh.js');
+const {initialForm, resetForContext, processInterval, submissionDateForConfirmation, validateSubmission, webSubmissionTiming} = require('../.test-build/lkh.js');
 const {receiverMode,receiverReady} = require('../.test-build/receiver.js');
 const master = {LINE_1:{operators:['Operator A'],mesin_part_mapping:{PRESS:{options:['PART A']}}},LINE_8:{operators:['Operator A'],mesin_part_mapping:{PIPE:{options:['PART A']}}}};
 const now = Date.parse('2026-10-30T12:00:00+07:00');
@@ -14,6 +14,16 @@ test('manual operator requires a single nonempty name and prevents double counti
 });
 test('line reset clears quantities, time, issue and overtime while preserving date/shift',()=>{const p=sample();p.form.permasalahan='old';const f=resetForContext(p.form);assert.equal(f.qtyOk,'');assert.equal(f.jamMulaiProses,'');assert.equal(f.permasalahan,'');assert.equal(f.lembur,'');assert.equal(f.operator.length,0);assert.equal(f.tanggal,p.form.tanggal);assert.equal(f.shift,'1');});
 test('shift 2 crossing midnight and post-midnight start use correct calendar date',()=>{const f=sample().form;f.shift='2';f.jamMulaiProses='23:00';f.jamSelesaiProses='02:00';const x=processInterval(f);assert.equal(x.end-x.start,3*3600000);assert.equal(new Date(x.end).toISOString(),'2026-10-29T19:00:00.000Z');f.jamMulaiProses='00:30';assert.equal(new Date(processInterval(f).start).toISOString(),'2026-10-29T17:30:00.000Z');});
+test('first web receipt is compared with shift end in WIB, including the next morning for shift 2',()=>{
+ const day={tanggal:'2026-11-26',shift:'1'};
+ const night={...day,shift:'2'};
+ assert.deepEqual(webSubmissionTiming('2026-11-26T19:30:00+07:00',day),{submittedAt:'2026-11-26T12:30:00.000Z',afterShift:false});
+ assert.equal(webSubmissionTiming('2026-11-26T19:31:00+07:00',day).afterShift,true);
+ assert.equal(webSubmissionTiming(new Date('2026-11-27T02:00:00+07:00'),night).afterShift,false);
+ assert.equal(webSubmissionTiming('2026-11-27T07:30:00+07:00',night).afterShift,false);
+ assert.equal(webSubmissionTiming('2026-11-27T07:31:00+07:00',night).afterShift,true);
+ assert.deepEqual(webSubmissionTiming(null,day),{submittedAt:null,afterShift:null});
+});
 test('reporting-date confirmation uses WIB and the Friday Shift 2 exception ends Saturday at 07:30',()=>{
  const check=(tanggal,shift,time)=>submissionDateForConfirmation({tanggal,shift},Date.parse(time));
  assert.equal(check('2026-11-14','1','2026-11-13T18:00:00Z'),null);

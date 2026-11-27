@@ -1,5 +1,5 @@
 import {reviewCt} from './review-ct';
-import { EARLY_PRODUCTION_MINUTES, processInterval, validateSubmission, type Master, type Submission } from './lkh';
+import { EARLY_PRODUCTION_MINUTES, processInterval, validateSubmission, webSubmissionTiming, type Master, type Submission } from './lkh';
 import { intakeMaster, sqlDatabase } from './sql-intake';
 
 // The submitted payload stays immutable so operator retries retain the same receipt.
@@ -92,7 +92,7 @@ export async function remapReviewPart(id: string, hash: string, part: string, ac
 
 export async function line4ReviewSnapshot(date: string, shift: string, line: string, webOnly = false) {
   const sql = sqlDatabase();
-  const [rows, ctRows] = await Promise.all([sql`SELECT id,payload,leader_review AS review,delivery_state,
+  const [rows, ctRows] = await Promise.all([sql`SELECT id,payload,received_at,leader_review AS review,delivery_state,
     (SELECT mirror_state FROM lkh_report_revisions WHERE request_id=(leader_review->>'revisionId')::uuid) AS mirror_state,
     EXISTS(SELECT 1 FROM lkh_report_revisions WHERE report_id=lkh_reports.id AND mirror_state='REVIEW') AS mirror_blocked,
     encode(sha256(convert_to(payload::text || COALESCE(leader_review->>'deliveryPart',''),'UTF8')),'hex') AS hash
@@ -130,6 +130,7 @@ export async function line4ReviewSnapshot(date: string, shift: string, line: str
       id: row.id, line: row.payload.line, date, shift, hash: row.hash,
       machine: form.mesin, part, originalPart: form.part, reviewSource: 'LINE4_WEB', viewOnly: false,
       operator: form.operator.map(name=>name==='__other_option__'?form.operatorLainnya:name).join(', '),
+      ...webSubmissionTiming(row.received_at, row.payload.form),
       state,
       validation,
       revisionVersion: approved && (row.review.testOnly || form.jenisAktivitas!=='DANDORI') ? row.review.revisionId || row.review.requestId : undefined,

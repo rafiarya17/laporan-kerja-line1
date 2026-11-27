@@ -45,6 +45,19 @@ const MINUTES_PER_DAY = 24 * 60;
 const MINUTE_MS = 60_000;
 export const EARLY_PRODUCTION_MINUTES = 15;
 
+function shiftEndAt(day: number, shift: string) {
+  return day + (shift === "2" ? MINUTES_PER_DAY + SHIFT_ONE_START : SHIFT_TWO_START) * MINUTE_MS;
+}
+
+export function webSubmissionTiming(receivedAt: unknown, form: Pick<LkhForm, "tanggal" | "shift">) {
+  const receivedMs = receivedAt instanceof Date ? receivedAt.getTime()
+    : typeof receivedAt === "string" ? Date.parse(receivedAt) : NaN;
+  const submittedAt = Number.isFinite(receivedMs) ? new Date(receivedMs).toISOString() : null;
+  const shiftEnd = validDate(form.tanggal) && ["1", "2"].includes(form.shift)
+    ? shiftEndAt(Date.parse(form.tanggal + "T00:00:00+07:00"), form.shift) : null;
+  return { submittedAt, afterShift: submittedAt !== null && shiftEnd !== null ? receivedMs > shiftEnd : null };
+}
+
 export function productionTimeError(form: LkhForm, now?: number, earlyMinutes = 0): string | null {
   const interval = processInterval(form);
   if (!interval) return "Isi tanggal, shift, serta jam mulai dan selesai proses yang valid.";
@@ -53,7 +66,7 @@ export function productionTimeError(form: LkhForm, now?: number, earlyMinutes = 
   const shiftOneEndsAt = day + SHIFT_TWO_START * MINUTE_MS;
   const night = form.shift === "2";
   const shiftStart = day + (night ? SHIFT_TWO_START : SHIFT_ONE_START) * MINUTE_MS;
-  const shiftEnd = day + (night ? MINUTES_PER_DAY + SHIFT_ONE_START : SHIFT_TWO_START) * MINUTE_MS;
+  const shiftEnd = shiftEndAt(day, form.shift);
 
   if (interval.end <= interval.start) return "Jam selesai harus setelah jam mulai proses.";
   if (interval.start < shiftStart || interval.end > shiftEnd) {

@@ -13,6 +13,7 @@ const timestamp = new Intl.DateTimeFormat('id-ID', {
   hour: '2-digit', minute: '2-digit', second: '2-digit'
 });
 const showDate = iso => day.format(new Date(iso + 'T00:00:00Z'));
+const showSubmitted = iso => iso ? timestamp.format(new Date(iso)) : '—';
 const quantities = [['ok', 'OK'], ['repair', 'Repair'], ['reject', 'Reject']];
 const formatQuantity = (row, key, value) =>
   number.format(value) + (row.line === 'LINE_8' ? (key === 'ok' ? ' batang' : ' mm') : ' pcs');
@@ -25,18 +26,24 @@ const columns = [
   ['part', 'Part', row => row.part],
   ...quantities.map(([key, label]) => [key, label, row => formatQuantity(row, key, row[key]), 'Total ' + label]),
   ['revised', 'Revisi', row => row.revised === true ? 'Ya' : row.revised === false ? 'Tidak' : '—'],
+  ['submittedAt', 'Dikirim operator (WIB)', row => showSubmitted(row.submittedAt), 'Terakhir dikirim operator (WIB)'],
+  ['afterShift', 'Dikirim setelah shift', row => row.byShift
+    ? (row.timedReports ? row.lateReports + ' / ' + row.timedReports : '—')
+    : row.afterShift == null ? '—' : row.afterShift ? 'Ya' : 'Tidak',
+    'Laporan setelah shift'],
   ['approved', 'Disetujui (WIB)', row => timestamp.format(new Date(row.approved)), 'Terakhir disetujui (WIB)']
 ];
+const submissionColumn = columns.findIndex(([key]) => key === 'revised');
 const shiftColumns = quantities.flatMap(([key, label]) => ['1', '2'].map(shift => [
   key + shift, label + ' Shift ' + shift, row => formatQuantity(row, key, row.byShift[shift]?.[key] ?? 0)
 ]));
-const allColumns = [...columns.slice(0, -2), ...shiftColumns, ...columns.slice(-2)];
+const allColumns = [...columns.slice(0, submissionColumn), ...shiftColumns, ...columns.slice(submissionColumn)];
 const defaultSelection = columns.map(([key]) => key);
 const showingAllShifts = () => el('shift').value === '';
 const metricGroups = new Map(quantities.flatMap(([key]) => [
   [key, 'total-metrics'], [key + '1', 'shift-one-metrics'], [key + '2', 'shift-two-metrics']
 ]));
-const defaultWidths = { date: 118, line: 78, shift: 65, machine: 160, part: 230, revised: 77, approved: 164 };
+const defaultWidths = { date: 118, line: 78, shift: 65, machine: 160, part: 230, revised: 77, submittedAt: 184, afterShift: 140, approved: 164 };
 const minWidth = 64, maxWidth = 720;
 const widthPreference = 'berlindo.tf-slip.column-widths.v1';
 const columnWidths = new Map();
@@ -112,7 +119,7 @@ function summarizeShifts(reports) {
   for (const report of reports) {
     const id = JSON.stringify([report.date, report.line, report.machine, report.part]);
     if (!groups.has(id)) {
-      groups.set(id, { ...report, ok: 0, repair: 0, reject: 0, byShift: {} });
+      groups.set(id, { ...report, ok: 0, repair: 0, reject: 0, byShift: {}, timedReports: 0, lateReports: 0 });
     }
     const group = groups.get(id);
     const breakdown = group.byShift[report.shift] ??= { ok: 0, repair: 0, reject: 0 };
@@ -123,17 +130,23 @@ function summarizeShifts(reports) {
     }
     if (report.revised === true) group.revised = true;
     if (Date.parse(report.approved) > Date.parse(group.approved)) group.approved = report.approved;
+    if (report.submittedAt && (!group.submittedAt || report.submittedAt > group.submittedAt)) group.submittedAt = report.submittedAt;
+    if (typeof report.afterShift === 'boolean') group.timedReports++;
+    if (report.afterShift === true) group.lateReports++;
   }
   return Array.from(groups.values(), group => ({ ...group, shift: Object.keys(group.byShift).join(' + ') }));
 }
-const preference = 'berlindo.tf-slip.columns.v2';
+const preference = 'berlindo.tf-slip.columns.v3';
 let selected = defaultSelection;
 try {
   const currentPreference = localStorage.getItem(preference);
   const saved = currentPreference === null
-    ? JSON.parse(localStorage.getItem('berlindo.tf-slip.columns.v1'))
+    ? JSON.parse(localStorage.getItem('berlindo.tf-slip.columns.v2') ?? localStorage.getItem('berlindo.tf-slip.columns.v1'))
     : JSON.parse(currentPreference);
-  if (currentPreference === null && Array.isArray(saved)) saved.push('revised');
+  if (currentPreference === null && Array.isArray(saved)) {
+    if (localStorage.getItem('berlindo.tf-slip.columns.v2') === null) saved.push('revised');
+    saved.push('submittedAt', 'afterShift');
+  }
   const known = allColumns.map(([key]) => key).filter(key => Array.isArray(saved) && saved.includes(key));
   if (defaultSelection.some(key => known.includes(key))) selected = known;
 } catch { /* Browser storage is optional. */ }
@@ -149,6 +162,8 @@ const sortValues = {
   machine: row => row.machine,
   part: row => row.part,
   revised: row => row.revised == null ? null : Number(row.revised),
+  submittedAt: row => Date.parse(row.submittedAt),
+  afterShift: row => row.byShift ? (row.timedReports ? row.lateReports : null) : row.afterShift == null ? null : Number(row.afterShift),
   approved: row => Date.parse(row.approved)
 };
 for (const [key] of quantities) {
