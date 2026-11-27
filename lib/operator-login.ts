@@ -33,14 +33,28 @@ export async function startSession(req:Request, nik:string) {
       window_start=CASE WHEN a.window_start < now()-interval '1 minute' THEN now() ELSE a.window_start END RETURNING attempts, window_start::text AS bucket`;
   if(Number(rate.attempts)>30) return {status:429,error:"Terlalu banyak percobaan. Coba lagi dalam satu menit."};
   const token=randomBytes(32).toString("hex");
-  const [row]=await sql`WITH person AS (
-    SELECT a.* FROM lkh_operator_accounts a JOIN lkh_operator_login_settings f ON f.id AND f.enabled
-    WHERE a.enabled AND a.lookup_hash=encode(sha256(convert_to(f.lookup_salt || ${digest(nik)},'UTF8')),'hex')
+  // Match either input against the same full-NIK hashes, including future roster changes.
+  const hashes = nik.length === 6
+    ? Array.from({length:100}, (_, suffix) => digest(nik + "-" + String(suffix).padStart(2, "0")))
+    : [digest(nik)];
+  const [row]=await sql`WITH candidates AS (
+    SELECT a.id, a.name, a.lines
+    FROM lkh_operator_login_settings f
+    CROSS JOIN jsonb_array_elements_text(${JSON.stringify(hashes)}::jsonb) AS input(hash)
+    JOIN lkh_operator_accounts a ON a.enabled AND
+      a.lookup_hash=encode(sha256(convert_to(f.lookup_salt || input.hash,'UTF8')),'hex')
+    WHERE f.id AND f.enabled
+    LIMIT 2
+  ), matches AS (
+    SELECT count(*)::int AS total FROM candidates
   ), added AS (
     INSERT INTO lkh_operator_sessions(token_hash,account_id,expires_at)
-    SELECT ${digest(token)},id,now()+make_interval(secs=>${sessionSeconds}) FROM person RETURNING account_id
-  ) SELECT id,name,lines FROM person JOIN added ON account_id=id`;
-  if (!row) return {status:401,error:"NIK kerja belum terdaftar atau login sedang nonaktif."};
+    SELECT ${digest(token)},id,now()+make_interval(secs=>${sessionSeconds})
+    FROM candidates, matches WHERE total=1 RETURNING account_id
+  ) SELECT total, id, name, lines FROM matches LEFT JOIN added ON true
+    LEFT JOIN candidates ON candidates.id=added.account_id`;
+  if (row?.total === 2) return {status:409,error:"Tambahkan 2 angka terakhir NIK Anda. Enam angka awal ini dipakai lebih dari satu operator."};
+  if (!row?.id) return {status:401,error:"NIK kerja belum terdaftar atau login sedang nonaktif."};
   await sql.transaction([
     sql`DELETE FROM lkh_operator_sessions WHERE expires_at<now() OR token_hash=${tokenHash(req)}`,
     sql`UPDATE lkh_operator_login_attempts SET attempts=greatest(attempts-1,0) WHERE client_hash=${digest(ip)} AND window_start=${rate.bucket}::timestamptz`,

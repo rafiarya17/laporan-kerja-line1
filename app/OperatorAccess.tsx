@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import type { OperatorActor } from "@/lib/operator-directory";
 
 type State = {enabled:boolean; actor:OperatorActor|null};
@@ -7,6 +7,7 @@ type Actions = { finish:(message:string)=>void; switchUser:()=>Promise<void>; re
 export function OperatorAccess({children}:{children:(actor:OperatorActor|null,actions:Actions)=>ReactNode}) {
   const [state,setState]=useState<State|null>(null);
   const [nik,setNik]=useState("");
+  const nikInput=useRef<HTMLInputElement>(null);
   const [message,setMessage]=useState("");
   const [error,setError]=useState("");
   const [busy,setBusy]=useState(false);
@@ -49,13 +50,18 @@ export function OperatorAccess({children}:{children:(actor:OperatorActor|null,ac
         try {
           const res=await fetch("/api/operator-session",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"login",nik})});
           const data=await res.json();
-          if(!res.ok){await refresh();throw Error(data.error||"Gagal masuk.");}
+          if(!res.ok){
+            if(res.status===409)nikInput.current?.focus();
+            else await refresh();
+            throw Error(data.error||"Gagal masuk.");
+          }
           setNik("");setState({enabled:true,actor:data.actor});
         }catch(err){setError(err instanceof Error?err.message:"Periksa koneksi.");}
         finally{setBusy(false);}
       }}>
         <label className="block font-semibold" htmlFor="nik">NIK kerja</label>
-        <input id="nik" type="text" autoComplete="off" spellCheck={false} placeholder="DDMMYY-NN" value={nik} onChange={e=>setNik(e.target.value)} required maxLength={12}
+        <p id="nik-help" className="mt-1 text-sm text-slate-600">Masukkan 6 angka pertama atau NIK lengkap.</p>
+        <input ref={nikInput} id="nik" aria-describedby="nik-help" type="text" inputMode="numeric" autoComplete="off" spellCheck={false} value={nik} onChange={e=>setNik(e.target.value)} required maxLength={9}
           className="mt-2 w-full rounded-xl border border-slate-400 p-3" />
         <button disabled={busy} className="mt-4 min-h-12 w-full rounded-xl bg-blue-800 p-3 font-bold text-white">{busy?"Memeriksa…":"Masuk ke form"}</button>
       </form> : error ? <button onClick={refresh} className="rounded-xl border px-4 py-3 font-semibold">Coba lagi</button> : <p>Memuat form…</p>}

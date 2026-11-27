@@ -13,9 +13,9 @@ export async function POST(req:Request) {
     const body=await req.json();
     if (body.action==="logout") {await endSession(req);return reply({ok:true},200,cookie("",0));}
     const nik=typeof body.nik==="string" ? body.nik.trim() : "";
-    if(body.action!=="login" || !/^\d{6}-\d{2}$/.test(nik))return reply({error:"Masukkan NIK kerja sesuai kartu, termasuk tanda hubung."},400);
+    if(body.action!=="login" || !/^\d{6}(?:-?\d{2})?$/.test(nik))return reply({error:"Masukkan 6 angka pertama atau NIK lengkap sesuai kartu kerja."},400);
     if(process.env.VERCEL_ENV!=="production")return reply({error:"Login tidak aktif."},403);
-    const result=await startSession(req,nik);
+    const result=await startSession(req,nik.replace(/^(\d{6})(\d{2})$/, "$1-$2"));
     return result.token ? reply({enabled:true,actor:result.actor},200,cookie(result.token,sessionSeconds)) : reply({error:result.error},result.status);
   } catch{return reply({error:"Layanan login belum tersedia. Coba lagi."},503);}
 }
