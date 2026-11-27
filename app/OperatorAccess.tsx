@@ -61,7 +61,7 @@ export function OperatorAccess({children}:{children:(actor:OperatorActor|null,ac
       }}>
         <label className="block font-semibold" htmlFor="nik">NIK kerja</label>
         <p id="nik-help" className="mt-1 text-sm text-slate-600">Masukkan 6 angka pertama atau NIK lengkap.</p>
-        <input ref={nikInput} id="nik" aria-describedby="nik-help" type="text" inputMode="numeric" autoComplete="off" spellCheck={false} value={nik} onChange={e=>setNik(e.target.value)} required maxLength={9}
+        <input ref={nikInput} id="nik" aria-describedby="nik-help" type="text" autoCapitalize="none" autoComplete="off" spellCheck={false} value={nik} onChange={e=>setNik(e.target.value)} required maxLength={32}
           className="mt-2 w-full rounded-xl border border-slate-400 p-3" />
         <button disabled={busy} className="mt-4 min-h-12 w-full rounded-xl bg-blue-800 p-3 font-bold text-white">{busy?"Memeriksa…":"Masuk ke form"}</button>
       </form> : error ? <button onClick={refresh} className="rounded-xl border px-4 py-3 font-semibold">Coba lagi</button> : <p>Memuat form…</p>}

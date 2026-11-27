@@ -1,3 +1,4 @@
+import {leaderInputAccountId} from "@/lib/operator-directory";
 import {actorMatches, claimReport, cookie, endSession, releaseReport, sameRequestOrigin, sessionState} from "@/lib/operator-login";
 import { after } from "next/server";
 import { requiresProductionReview, sqlIntakeEnabled, sqlSubmissionEnabled, submitSqlReport } from "@/lib/sql-intake";
@@ -23,11 +24,12 @@ export async function POST(request: Request) {
       return fail("Penerimaan laporan produksi sedang tidak tersedia. Coba lagi dengan ID yang sama.", 503);
     }
     const {enabled,actor}=await sessionState(request);
+    const singleReportSession = enabled && actor?.id !== leaderInputAccountId;
     if(enabled) {
       if(!actor || actor.id!==request.headers.get("x-lkh-actor"))return fail("Masuk dengan NIK pelapor untuk mengirim laporan.",401);
-      if(!actorMatches(actor.name,payload))return fail("Nama pelapor harus sesuai dengan sesi operator.",403);
+      if(singleReportSession && !actorMatches(actor.name,payload))return fail("Nama pelapor harus sesuai dengan sesi operator.",403);
       if(!/^LKH(?:99)?-[0-9a-f-]{36}$/i.test(payload.id))return fail("ID laporan tidak valid.",400);
-      if(!await claimReport(request,payload.id))return fail("Sesi sudah digunakan. Masuk kembali untuk melanjutkan.",401);
+      if(singleReportSession && !await claimReport(request,payload.id))return fail("Sesi sudah digunakan. Masuk kembali untuk melanjutkan.",401);
     }
     const started=performance.now();
     const result = sqlSubmissionEnabled(payload?.line) ? await submitSqlReport(payload,actor?.id) : await submitReport(payload, request.headers.get("x-lkh-retry") === "1", receiverMode(), callReceiver);
@@ -35,10 +37,10 @@ export async function POST(request: Request) {
       try { await drainSqlDelivery(); } catch { console.error("LKH_SQL_DELIVERY_RETRY_REQUIRED"); }
     });
     const response=Response.json(result.body, {status: result.status, headers: {"Cache-Control": "no-store", "Server-Timing": `submission;dur=${Math.round(performance.now()-started)}`}});
-    if(enabled && result.body.ok) {
+    if(singleReportSession && result.body.ok) {
       await endSession(request);
       response.headers.set("Set-Cookie",cookie("",0));
-    } else if(enabled && result.status<500) {
+    } else if(singleReportSession && result.status<500) {
       await releaseReport(request,payload.id);
     }
     return response;

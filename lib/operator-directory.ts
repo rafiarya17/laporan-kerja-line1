@@ -1,5 +1,6 @@
 import type { LkhForm } from "./lkh";
 export type OperatorActor = { id: string; name: string; lines: string[] };
+export const leaderInputAccountId = "LKH_LEADER_INPUT";
 export function includeReporter(form:LkhForm, name:string, options:string[], line:string):LkhForm {
   const helpers=form.operator.filter(o=>o!==name);
   if(options.includes(name))return {...form,operator:[name,...helpers]};
